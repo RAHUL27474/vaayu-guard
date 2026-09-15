@@ -123,16 +123,52 @@ public static class Installer
 
     private static void RegisterScheduledTask(string exePath)
     {
+        // Whoever is running this installer (possibly elevated as a
+        // *different* admin account than the person who logs into this PC
+        // day to day) is not necessarily who the AtLogOn trigger should
+        // fire for. Resolve the actual interactive console user instead of
+        // trusting Environment.UserName, or the task silently never fires
+        // again after the next restart.
+        var interactiveUser = GetInteractiveConsoleUser() ?? Environment.UserName;
+
         // Ignore failure — fine if the task doesn't exist yet on first install.
         RunSchtasks(["/delete", "/tn", TaskName, "/f"], out _);
 
+        // /it (interactive token) is required alongside /ru for an AtLogOn
+        // task to run using the user's own interactive logon — without it,
+        // schtasks expects a stored password (/rp) for that account instead.
         var create = RunSchtasks(
-            ["/create", "/tn", TaskName, "/tr", exePath, "/sc", "onlogon", "/rl", "highest", "/f"],
+            ["/create", "/tn", TaskName, "/tr", exePath, "/sc", "onlogon", "/ru", interactiveUser, "/it", "/rl", "highest", "/f"],
             out var output);
         if (create != 0)
         {
             throw new InvalidOperationException($"schtasks /create exited with code {create}: {output}");
         }
+    }
+
+    /// <summary>
+    /// The account actually logged into the interactive console session —
+    /// via WMI, since that's what's authoritative regardless of which
+    /// account is running this installer process. Returns "DOMAIN\user" or
+    /// null if it couldn't be determined (e.g. no interactive session).
+    /// </summary>
+    private static string? GetInteractiveConsoleUser()
+    {
+        try
+        {
+            using var searcher = new System.Management.ManagementObjectSearcher(
+                "SELECT UserName FROM Win32_ComputerSystem");
+            foreach (System.Management.ManagementObject obj in searcher.Get())
+            {
+                var userName = obj["UserName"] as string;
+                if (!string.IsNullOrWhiteSpace(userName)) return userName;
+            }
+        }
+        catch
+        {
+            // Fall through to the Environment.UserName fallback at the call site.
+        }
+        return null;
     }
 
     private static int RunSchtasks(string[] arguments, out string output)

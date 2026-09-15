@@ -21,7 +21,7 @@ public class SelfUpdater(HttpClient http, AgentOptions options, ILogger<SelfUpda
 {
     // Bump alongside agent/install/stage-update.ps1's manifest version on
     // every release that should trigger already-installed agents to update.
-    public const int CurrentAgentVersion = 6;
+    public const int CurrentAgentVersion = 7;
 
     public async Task CheckAndApplyAsync(CancellationToken ct)
     {

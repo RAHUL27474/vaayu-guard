@@ -34,6 +34,19 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# The person running this (elevated, "Run as Administrator") is not
+# necessarily who logs into this PC day to day — on a managed/corporate
+# machine, UAC elevation can run as a *different* admin account entirely.
+# Registering the AtLogOn task for $env:USERNAME in that case silently
+# creates a task that never fires for the actual daily user. Resolve the
+# real interactively-logged-on console user instead.
+$interactiveUser = (Get-CimInstance -ClassName Win32_ComputerSystem).UserName
+if (-not $interactiveUser) {
+    Write-Warning "Could not detect the interactive console user — falling back to the current process user ($env:USERDOMAIN\$env:USERNAME). If this PowerShell was elevated as a DIFFERENT account than the one that logs into this PC daily, the scheduled task will not survive a restart."
+    $interactiveUser = "$env:USERDOMAIN\$env:USERNAME"
+}
+Write-Host "Registering the logon task for: $interactiveUser"
+
 $sourceDir = $PSScriptRoot | Split-Path -Parent | Join-Path -ChildPath "dist"
 if (-not (Test-Path $sourceDir)) {
     throw "Published agent not found at '$sourceDir'. Run 'dotnet publish -c Release -o ..\dist' from agent\src first."
@@ -51,7 +64,7 @@ Set-Content -Path $tokenPath -Value $EnrollmentToken -NoNewline
 # Restrict the data directory to Administrators + SYSTEM + the current user
 # — it holds the device's bearer token once enrolled.
 icacls $dataDir /inheritance:r | Out-Null
-icacls $dataDir /grant:r "SYSTEM:(OI)(CI)F" "BUILTIN\Administrators:(OI)(CI)F" "$($env:USERDOMAIN)\$($env:USERNAME):(OI)(CI)F" | Out-Null
+icacls $dataDir /grant:r "SYSTEM:(OI)(CI)F" "BUILTIN\Administrators:(OI)(CI)F" "$($interactiveUser):(OI)(CI)F" | Out-Null
 
 if ($BackendUrl) {
     [Environment]::SetEnvironmentVariable("VaayuGuard__BackendBaseUrl", $BackendUrl, "User")
@@ -65,7 +78,7 @@ Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction Silent
 
 $action = New-ScheduledTaskAction -Execute $exePath -WorkingDirectory $InstallDir
 $trigger = New-ScheduledTaskTrigger -AtLogOn
-$principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+$principal = New-ScheduledTaskPrincipal -UserId $interactiveUser -LogonType Interactive -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
 
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "VaayuGuard company-PC identity monitoring agent" | Out-Null
