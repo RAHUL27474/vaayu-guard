@@ -36,7 +36,11 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
         }
     }
 
-    public async Task<CheckinResult?> CheckinAsync(string deviceToken, IReadOnlyList<QueuedEvent> events, CancellationToken ct)
+    public async Task<CheckinResult?> CheckinAsync(
+        string deviceToken,
+        IReadOnlyList<QueuedEvent> events,
+        IReadOnlyList<QueuedWindowActivity> windowActivity,
+        CancellationToken ct)
     {
         try
         {
@@ -54,6 +58,13 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
                     isMismatch = e.IsMismatch,
                     confidence = e.Confidence == EventConfidence.High ? "high" : "low",
                     isForeground = e.IsForeground,
+                }),
+                windowActivity = windowActivity.Select(w => new
+                {
+                    capturedAt = w.CapturedAt.ToString("o"),
+                    processName = w.ProcessName,
+                    windowTitle = w.WindowTitle,
+                    isForeground = w.IsForeground,
                 }),
             });
 
@@ -76,12 +87,13 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
         }
     }
 
-    public async Task<bool> ConsentAsync(string deviceToken, CancellationToken ct)
+    public async Task<bool> ConsentAsync(string deviceToken, int noticeVersion, CancellationToken ct)
     {
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, "/api/agent/consent");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", deviceToken);
+            request.Content = JsonContent.Create(new { noticeVersion });
             var res = await http.SendAsync(request, ct);
             return res.IsSuccessStatusCode;
         }

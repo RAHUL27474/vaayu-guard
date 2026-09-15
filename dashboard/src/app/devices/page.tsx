@@ -8,10 +8,15 @@ export default async function DevicesPage() {
   const session = await requireAdmin();
   const supabase = await createClient();
 
-  const { data: devices } = await supabase
-    .from("devices")
-    .select("*")
-    .order("registered_at", { ascending: false });
+  const [{ data: devices }, { data: openAlerts }] = await Promise.all([
+    supabase.from("devices").select("*").order("registered_at", { ascending: false }),
+    supabase.from("alerts").select("device_id").eq("status", "open"),
+  ]);
+
+  const openAlertCounts: Record<string, number> = {};
+  for (const a of openAlerts ?? []) {
+    openAlertCounts[a.device_id] = (openAlertCounts[a.device_id] ?? 0) + 1;
+  }
 
   return (
     <div className="space-y-6">
@@ -24,6 +29,7 @@ export default async function DevicesPage() {
       <DevicesList
         devices={devices ?? []}
         isSuperadmin={session.profile.role === "superadmin"}
+        openAlertCounts={openAlertCounts}
       />
     </div>
   );

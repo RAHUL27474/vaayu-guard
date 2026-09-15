@@ -18,12 +18,38 @@ function StatusBadge({ status }: { status: Device["status"] }) {
   );
 }
 
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+
+function HealthDot({ device, openAlertCount }: { device: Device; openAlertCount: number }) {
+  const online =
+    !!device.last_seen_at && Date.now() - new Date(device.last_seen_at).getTime() < ONLINE_WINDOW_MS;
+
+  let color = "bg-slate-300"; // offline
+  let label = "Offline";
+  if (online && openAlertCount > 0) {
+    color = "bg-rose-500";
+    label = `Online — ${openAlertCount} open alert${openAlertCount === 1 ? "" : "s"}`;
+  } else if (online) {
+    color = "bg-emerald-500";
+    label = "Online — clean";
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5" title={label}>
+      <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
+      <span className="text-xs text-slate-500">{label}</span>
+    </span>
+  );
+}
+
 export function DevicesList({
   devices,
   isSuperadmin,
+  openAlertCounts,
 }: {
   devices: Device[];
   isSuperadmin: boolean;
+  openAlertCounts: Record<string, number>;
 }) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
@@ -164,6 +190,7 @@ export function DevicesList({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+              <th className="p-3">Health</th>
               <th className="p-3">Label</th>
               <th className="p-3">Assigned to</th>
               <th className="p-3">Assigned email</th>
@@ -176,13 +203,16 @@ export function DevicesList({
           <tbody>
             {devices.length === 0 ? (
               <tr>
-                <td colSpan={7} className="p-6 text-center text-slate-500">
+                <td colSpan={8} className="p-6 text-center text-slate-500">
                   No devices enrolled yet.
                 </td>
               </tr>
             ) : (
               devices.map((d) => (
                 <tr key={d.id} className="border-b border-slate-100 last:border-0">
+                  <td className="p-3">
+                    <HealthDot device={d} openAlertCount={openAlertCounts[d.id] ?? 0} />
+                  </td>
                   <td className="p-3 font-medium">{d.device_label ?? d.hostname ?? "—"}</td>
                   <td className="p-3">{d.assigned_to_user ?? "—"}</td>
                   <td className="p-3">{d.assigned_email}</td>

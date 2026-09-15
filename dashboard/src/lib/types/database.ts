@@ -51,6 +51,7 @@ export type Database = {
           status: Database["public"]["Enums"]["device_status"]
           last_seen_at: string | null
           consent_acknowledged_at: string | null
+          consent_notice_version: number | null
           registered_at: string
           created_by: string | null
         }
@@ -67,6 +68,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["device_status"]
           last_seen_at?: string | null
           consent_acknowledged_at?: string | null
+          consent_notice_version?: number | null
           registered_at?: string
           created_by?: string | null
         }
@@ -83,6 +85,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["device_status"]
           last_seen_at?: string | null
           consent_acknowledged_at?: string | null
+          consent_notice_version?: number | null
           registered_at?: string
           created_by?: string | null
         }
@@ -200,6 +203,44 @@ export type Database = {
           },
         ]
       }
+      window_activity: {
+        Row: {
+          id: number
+          device_id: string
+          captured_at: string
+          process_name: string
+          window_title: string
+          is_foreground: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          device_id: string
+          captured_at: string
+          process_name: string
+          window_title: string
+          is_foreground?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: number
+          device_id?: string
+          captured_at?: string
+          process_name?: string
+          window_title?: string
+          is_foreground?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "window_activity_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           id: number
@@ -291,5 +332,6 @@ export type Device = Tables<"devices">
 export type ActivityEvent = Tables<"activity_events">
 export type Alert = Tables<"alerts">
 export type Session = Tables<"sessions">
+export type WindowActivity = Tables<"window_activity">
 export type DailyIdentityActivity =
   Database["public"]["Views"]["daily_identity_activity"]["Row"]

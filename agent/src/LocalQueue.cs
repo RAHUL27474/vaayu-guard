@@ -13,6 +13,13 @@ public record QueuedEvent(
     EventConfidence Confidence,
     bool IsForeground);
 
+public record QueuedWindowActivity(
+    long Id,
+    DateTimeOffset CapturedAt,
+    string ProcessName,
+    string WindowTitle,
+    bool IsForeground);
+
 /// <summary>
 /// SQLite-backed offline queue at %ProgramData%\VaayuGuard\queue.db. Events
 /// are written here first so nothing is lost if the PC is offline for days;
@@ -49,6 +56,16 @@ public class LocalQueue
                     synced INTEGER NOT NULL DEFAULT 0
                 );
                 CREATE INDEX IF NOT EXISTS idx_events_unsynced ON events (synced);
+
+                CREATE TABLE IF NOT EXISTS window_activity (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    captured_at TEXT NOT NULL,
+                    process_name TEXT NOT NULL,
+                    window_title TEXT NOT NULL,
+                    is_foreground INTEGER NOT NULL DEFAULT 0,
+                    synced INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE INDEX IF NOT EXISTS idx_window_activity_unsynced ON window_activity (synced);
                 """;
             cmd.ExecuteNonQuery();
         }
@@ -149,9 +166,77 @@ public class LocalQueue
     public void PruneSynced(TimeSpan olderThan)
     {
         using var conn = Open();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "DELETE FROM events WHERE synced = 1 AND captured_at < $cutoff;";
+            cmd.Parameters.AddWithValue("$cutoff", (DateTimeOffset.UtcNow - olderThan).ToString("o"));
+            cmd.ExecuteNonQuery();
+        }
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "DELETE FROM window_activity WHERE synced = 1 AND captured_at < $cutoff;";
+            cmd.Parameters.AddWithValue("$cutoff", (DateTimeOffset.UtcNow - olderThan).ToString("o"));
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    public void EnqueueWindowActivity(ScannedWindow window)
+    {
+        using var conn = Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM events WHERE synced = 1 AND captured_at < $cutoff;";
-        cmd.Parameters.AddWithValue("$cutoff", (DateTimeOffset.UtcNow - olderThan).ToString("o"));
+        cmd.CommandText = """
+            INSERT INTO window_activity (captured_at, process_name, window_title, is_foreground)
+            VALUES ($capturedAt, $processName, $windowTitle, $isForeground);
+            """;
+        cmd.Parameters.AddWithValue("$capturedAt", DateTimeOffset.UtcNow.ToString("o"));
+        cmd.Parameters.AddWithValue("$processName", window.ProcessName);
+        cmd.Parameters.AddWithValue("$windowTitle", window.WindowTitle);
+        cmd.Parameters.AddWithValue("$isForeground", window.IsForeground ? 1 : 0);
         cmd.ExecuteNonQuery();
+    }
+
+    public List<QueuedWindowActivity> GetUnsyncedWindowActivityBatch(int limit)
+    {
+        using var conn = Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT id, captured_at, process_name, window_title, is_foreground
+            FROM window_activity WHERE synced = 0 ORDER BY id ASC LIMIT $limit;
+            """;
+        cmd.Parameters.AddWithValue("$limit", limit);
+
+        var result = new List<QueuedWindowActivity>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            result.Add(new QueuedWindowActivity(
+                reader.GetInt64(0),
+                DateTimeOffset.Parse(reader.GetString(1)),
+                reader.GetString(2),
+                reader.GetString(3),
+                reader.GetInt32(4) == 1));
+        }
+        return result;
+    }
+
+    public void MarkWindowActivitySynced(IEnumerable<long> ids)
+    {
+        var idList = ids.ToList();
+        if (idList.Count == 0) return;
+
+        using var conn = Open();
+        using var tx = conn.BeginTransaction();
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "UPDATE window_activity SET synced = 1 WHERE id = $id;";
+        var param = cmd.CreateParameter();
+        param.ParameterName = "$id";
+        cmd.Parameters.Add(param);
+        foreach (var id in idList)
+        {
+            param.Value = id;
+            cmd.ExecuteNonQuery();
+        }
+        tx.Commit();
     }
 }

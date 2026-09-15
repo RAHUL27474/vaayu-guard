@@ -43,6 +43,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 <Link href="/activity" className="hover:underline">
                   Activity
                 </Link>
+                <Link href="/timeline" className="hover:underline">
+                  Timeline
+                </Link>
               </nav>
               <div className="ml-auto flex items-center gap-3 text-sm text-slate-500">
                 <span>

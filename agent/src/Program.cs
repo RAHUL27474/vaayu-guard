@@ -13,6 +13,11 @@ builder.Services.AddHttpClient<BackendClient>(client =>
     client.BaseAddress = new Uri(agentOptions.BackendBaseUrl);
     client.Timeout = TimeSpan.FromSeconds(20);
 });
+builder.Services.AddHttpClient<SelfUpdater>(client =>
+{
+    client.BaseAddress = new Uri(agentOptions.BackendBaseUrl);
+    client.Timeout = TimeSpan.FromMinutes(2); // downloading the exe can take a while
+});
 
 builder.Services.AddHostedService<Worker>();
 

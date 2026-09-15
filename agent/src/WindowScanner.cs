@@ -6,16 +6,18 @@ namespace VaayuMonitor.Agent;
 public record ScannedWindow(string ProcessName, string WindowTitle, bool IsForeground);
 
 /// <summary>
-/// Enumerates top-level visible windows via raw P/Invoke, filtered to the
-/// browser/mail processes we care about. Runs in the logged-in user's own
-/// session (the agent is launched by a per-logon Scheduled Task, not a
-/// Session-0 service), so it sees the user's own windows directly.
+/// Enumerates every visible top-level window via raw P/Invoke — every open
+/// app/browser window's title, not just Gmail/WhatsApp. Runs in the
+/// logged-in user's own session (the agent is launched by a per-logon
+/// Scheduled Task, not a Session-0 service), so it sees the user's own
+/// windows directly. Titles only: never reads page/document content.
 /// </summary>
 public class WindowScanner
 {
-    private static readonly HashSet<string> TargetProcesses = new(StringComparer.OrdinalIgnoreCase)
+    // Never log the agent's own console/window — pure noise, not activity.
+    private static readonly HashSet<string> ExcludedProcesses = new(StringComparer.OrdinalIgnoreCase)
     {
-        "chrome", "msedge", "firefox", "outlook",
+        "VaayuGuardAgent", "conhost",
     };
 
     [DllImport("user32.dll")]
@@ -67,7 +69,7 @@ public class WindowScanner
                 return true;
             }
 
-            if (TargetProcesses.Contains(processName))
+            if (!ExcludedProcesses.Contains(processName))
             {
                 results.Add(new ScannedWindow(processName, title, hWnd == foregroundHwnd));
             }

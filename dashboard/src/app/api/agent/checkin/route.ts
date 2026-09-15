@@ -14,7 +14,15 @@ type IncomingEvent = {
   isForeground?: boolean;
 };
 
+type IncomingWindowActivity = {
+  capturedAt: string;
+  processName: string;
+  windowTitle: string;
+  isForeground?: boolean;
+};
+
 const MAX_EVENTS_PER_BATCH = 200;
+const MAX_WINDOW_ACTIVITY_PER_BATCH = 500;
 
 // How much gap between two sightings of the same identity counts as "the
 // same continuous session" vs. "it was closed and reopened". Comfortably
@@ -32,7 +40,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { events?: IncomingEvent[] };
+  let body: { events?: IncomingEvent[]; windowActivity?: IncomingWindowActivity[] };
   try {
     body = await request.json();
   } catch {
@@ -40,7 +48,20 @@ export async function POST(request: Request) {
   }
 
   const events = (body.events ?? []).slice(0, MAX_EVENTS_PER_BATCH);
+  const windowActivity = (body.windowActivity ?? []).slice(0, MAX_WINDOW_ACTIVITY_PER_BATCH);
   const supabase = createAdminClient();
+
+  if (windowActivity.length > 0) {
+    await supabase.from("window_activity").insert(
+      windowActivity.map((w) => ({
+        device_id: device.id,
+        captured_at: w.capturedAt,
+        process_name: w.processName,
+        window_title: w.windowTitle,
+        is_foreground: w.isForeground ?? false,
+      }))
+    );
+  }
 
   if (events.length > 0) {
     const { error: insertError } = await supabase.from("activity_events").insert(

@@ -9,6 +9,9 @@ public class AgentOptions
     public int FlushIntervalSeconds { get; set; } = 30;
     public string DataDirectory { get; set; } = "%ProgramData%\\VaayuGuard";
 
+    /// <summary>How often to check the dashboard for a newer agent build.</summary>
+    public int UpdateCheckIntervalMinutes { get; set; } = 240;
+
     /// <summary>Resolves %ProgramData% etc. and ensures the directory exists.</summary>
     public string ResolveDataDirectory()
     {

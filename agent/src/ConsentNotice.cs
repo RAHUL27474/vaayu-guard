@@ -3,32 +3,56 @@ using System.Text.Json;
 namespace VaayuMonitor.Agent;
 
 /// <summary>
-/// Shows the one-time employee notice (see docs/CONSENT_NOTICE_TEXT.md) on
-/// first run. Only an explicit OK click writes the local acknowledgment —
-/// closing the box via X does not count, and the notice reshows next
-/// launch until acknowledged.
+/// Shows the employee notice (see docs/CONSENT_NOTICE_TEXT.md) on first run
+/// AND again whenever <see cref="CurrentNoticeVersion"/> is bumped — e.g.
+/// because what's monitored widened. Only an explicit OK click writes the
+/// local acknowledgment; closing via X does not count and the notice
+/// reshows next launch until acknowledged.
 /// </summary>
 public static class ConsentNotice
 {
+    // Bump this — and the text below, and docs/CONSENT_NOTICE_TEXT.md —
+    // whenever the scope of what's monitored changes. A version bump makes
+    // already-installed agents re-show the notice even though the employee
+    // acknowledged an earlier version.
+    public const int CurrentNoticeVersion = 2;
+
     private const string NoticeText =
         "VaayuTrip Monitoring Notice\n\n" +
         "This is a company-owned computer. VaayuTrip monitors this PC to check " +
         "that the company email account assigned to this desktop is the one in " +
-        "use, and to detect when WhatsApp Web is open, during working hours.\n\n" +
+        "use, to detect when WhatsApp Web is open, and to log which apps and " +
+        "browser tabs (by title only) are open during working hours.\n\n" +
         "This tool does not record keystrokes, screenshots, or the content of " +
-        "your messages or emails — it only checks which account is signed in.\n\n" +
+        "your messages, emails, or documents — only window/tab titles and " +
+        "which account is signed in.\n\n" +
         "By clicking OK, you acknowledge this notice.";
+
+    private record AckRecord(string AcknowledgedAt, string WindowsUser, int NoticeVersion);
 
     private static string AckPath(AgentOptions options) =>
         Path.Combine(options.ResolveDataDirectory(), "consent_ack.json");
 
-    public static bool IsAcknowledged(AgentOptions options) => File.Exists(AckPath(options));
+    public static bool IsAcknowledged(AgentOptions options)
+    {
+        var path = AckPath(options);
+        if (!File.Exists(path)) return false;
+        try
+        {
+            var record = JsonSerializer.Deserialize<AckRecord>(File.ReadAllText(path));
+            return record is not null && record.NoticeVersion >= CurrentNoticeVersion;
+        }
+        catch
+        {
+            return false; // corrupt/old-format file — treat as not acknowledged
+        }
+    }
 
     /// <summary>
-    /// If not already acknowledged, blocks (on a dedicated STA thread, since
-    /// the host's main thread apartment state isn't controllable from a
-    /// top-level-statement Program.cs) showing the notice. Returns true if
-    /// the user clicked OK just now.
+    /// If not already acknowledged (for the current notice version), blocks
+    /// (on a dedicated STA thread, since the host's main thread apartment
+    /// state isn't controllable from a top-level-statement Program.cs)
+    /// showing the notice. Returns true if the user clicked OK just now.
     /// </summary>
     public static bool EnsureAcknowledged(AgentOptions options)
     {
@@ -50,7 +74,7 @@ public static class ConsentNotice
 
         if (clickedOk)
         {
-            var ack = new { acknowledgedAt = DateTimeOffset.UtcNow.ToString("o"), windowsUser = Environment.UserName };
+            var ack = new AckRecord(DateTimeOffset.UtcNow.ToString("o"), Environment.UserName, CurrentNoticeVersion);
             File.WriteAllText(AckPath(options), JsonSerializer.Serialize(ack));
         }
 

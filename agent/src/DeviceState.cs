@@ -7,7 +7,15 @@ public class DeviceState
     public string DeviceId { get; set; } = "";
     public string DeviceToken { get; set; } = "";
     public string AssignedEmail { get; set; } = "";
-    public bool ConsentReported { get; set; }
+
+    /// <summary>
+    /// The highest notice version successfully reported to the backend.
+    /// 0 means never reported. Compared against
+    /// <see cref="ConsentNotice.CurrentNoticeVersion"/> so a notice-text
+    /// bump gets re-reported once the employee re-acknowledges, not just
+    /// on first enrollment.
+    /// </summary>
+    public int ConsentReportedVersion { get; set; }
 
     private static string StatePath(AgentOptions options) =>
         Path.Combine(options.ResolveDataDirectory(), "device.json");
