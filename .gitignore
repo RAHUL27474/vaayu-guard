@@ -1,0 +1,21 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+dashboard/.env.local
+dashboard/.env*.local
+
+# .NET
+**/bin/
+**/obj/
+agent/dist/
+
+# Local agent runtime data (never commit device tokens)
+**/device.token
+**/queue.db
+**/consent_ack.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
