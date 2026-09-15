@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requireSuperadmin } from "@/lib/auth-guard";
 import type { Alert } from "@/lib/types/database";
 
 export async function setAlertStatus(
@@ -28,11 +28,15 @@ export async function setAlertStatus(
  * forced kill and not a persistent block. Delivered on the device's next
  * check-in (within its poll interval) and consumed once — reopening the
  * same identity later needs another click.
+ *
+ * Superadmin-only by design — this is an active intervention on someone's
+ * PC, not a read/triage action, so it's deliberately not handed to the
+ * admin (director) role alongside acknowledge/dismiss.
  */
 export async function requestCloseWindow(
   alertId: number
 ): Promise<{ ok: boolean; error?: string }> {
-  const session = await requireAdmin();
+  const session = await requireSuperadmin();
   const supabase = await createClient();
   const { error } = await supabase
     .from("alerts")

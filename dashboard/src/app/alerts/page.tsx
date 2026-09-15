@@ -7,7 +7,7 @@ import type { Device } from "@/lib/types/database";
 export const dynamic = "force-dynamic";
 
 export default async function AlertsPage() {
-  await requireAdmin();
+  const session = await requireAdmin();
   const supabase = await createClient();
 
   const [{ data: alerts }, { data: devices }] = await Promise.all([
@@ -30,7 +30,11 @@ export default async function AlertsPage() {
         </div>
         <AutoRefresh intervalSeconds={15} />
       </div>
-      <AlertsList alerts={alerts ?? []} deviceMap={Object.fromEntries(deviceMap)} />
+      <AlertsList
+        alerts={alerts ?? []}
+        deviceMap={Object.fromEntries(deviceMap)}
+        isSuperadmin={session.profile.role === "superadmin"}
+      />
     </div>
   );
 }

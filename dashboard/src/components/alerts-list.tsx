@@ -23,9 +23,11 @@ function StatusBadge({ status }: { status: Alert["status"] }) {
 export function AlertsList({
   alerts,
   deviceMap,
+  isSuperadmin = false,
 }: {
   alerts: Alert[];
   deviceMap: Record<string, DeviceLite>;
+  isSuperadmin?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -92,18 +94,20 @@ export function AlertsList({
                   <td className="p-3 text-right">
                     {a.status === "open" ? (
                       <div className="flex flex-wrap justify-end items-center gap-3">
-                        {a.close_requested_at || closeRequested.has(a.id) ? (
-                          <span className="text-xs text-slate-400">Close requested…</span>
-                        ) : (
-                          <button
-                            disabled={pending}
-                            onClick={() => closeWindow(a.id)}
-                            className="text-xs font-medium text-rose-700 hover:underline"
-                            title="Sends a graceful close (like clicking X) to this window on its next check-in"
-                          >
-                            Close window
-                          </button>
-                        )}
+                        {isSuperadmin ? (
+                          a.close_requested_at || closeRequested.has(a.id) ? (
+                            <span className="text-xs text-slate-400">Close requested…</span>
+                          ) : (
+                            <button
+                              disabled={pending}
+                              onClick={() => closeWindow(a.id)}
+                              className="text-xs font-medium text-rose-700 hover:underline"
+                              title="Sends a graceful close (like clicking X) to this window on its next check-in"
+                            >
+                              Close window
+                            </button>
+                          )
+                        ) : null}
                         <button
                           disabled={pending}
                           onClick={() => act(a.id, "acknowledged")}

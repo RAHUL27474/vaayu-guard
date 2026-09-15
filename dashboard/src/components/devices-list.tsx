@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { Device } from "@/lib/types/database";
 import { createDevice, disableDevice } from "@/lib/actions/device-actions";
 
@@ -18,14 +19,25 @@ function StatusBadge({ status }: { status: Device["status"] }) {
   );
 }
 
-const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+// Slightly more than 2 poll cycles (default 45s) — long enough that one
+// missed check-in doesn't flash "Offline", short enough that a PC that's
+// genuinely off/asleep shows it within a couple of minutes.
+const ONLINE_WINDOW_MS = 2 * 60 * 1000;
+
+function timeAgo(iso: string): string {
+  const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.round(seconds / 3600)}h ago`;
+  return `${Math.round(seconds / 86400)}d ago`;
+}
 
 function HealthDot({ device, openAlertCount }: { device: Device; openAlertCount: number }) {
   const online =
     !!device.last_seen_at && Date.now() - new Date(device.last_seen_at).getTime() < ONLINE_WINDOW_MS;
 
   let color = "bg-slate-300"; // offline
-  let label = "Offline";
+  let label = device.last_seen_at ? `Offline — last seen ${timeAgo(device.last_seen_at)}` : "Never seen";
   if (online && openAlertCount > 0) {
     color = "bg-rose-500";
     label = `Online — ${openAlertCount} open alert${openAlertCount === 1 ? "" : "s"}`;
@@ -214,7 +226,11 @@ export function DevicesList({
                   <td className="p-3">
                     <HealthDot device={d} openAlertCount={openAlertCounts[d.id] ?? 0} />
                   </td>
-                  <td className="p-3 font-medium">{d.device_label ?? d.hostname ?? "—"}</td>
+                  <td className="p-3 font-medium">
+                    <Link href={`/devices/${d.id}`} className="text-slate-900 hover:underline">
+                      {d.device_label ?? d.hostname ?? "—"}
+                    </Link>
+                  </td>
                   <td className="p-3">{d.assigned_to_user ?? "—"}</td>
                   <td className="p-3">{d.assigned_email}</td>
                   <td className="p-3">
