@@ -11,9 +11,20 @@ type IncomingEvent = {
   detectedIdentity?: string | null;
   isMismatch?: boolean;
   confidence?: Database["public"]["Enums"]["event_confidence"];
+  isForeground?: boolean;
 };
 
 const MAX_EVENTS_PER_BATCH = 200;
+
+// How much gap between two sightings of the same identity counts as "the
+// same continuous session" vs. "it was closed and reopened". Comfortably
+// larger than the agent's default 45s poll interval so a couple of missed
+// polls don't fragment one real session into several.
+const SESSION_GAP_MS = 5 * 60 * 1000;
+
+function isTrackable(e: IncomingEvent): e is IncomingEvent & { detectedIdentity: string } {
+  return !!e.detectedIdentity && (e.isMismatch === true || e.channel === "whatsapp");
+}
 
 export async function POST(request: Request) {
   const device = await authenticateDevice(request);
@@ -42,6 +53,7 @@ export async function POST(request: Request) {
         detected_identity: e.detectedIdentity ?? null,
         is_mismatch: e.isMismatch ?? false,
         confidence: e.confidence ?? "high",
+        is_foreground: e.isForeground ?? false,
       }))
     );
     if (insertError) {
@@ -79,6 +91,8 @@ export async function POST(request: Request) {
         });
       }
     }
+
+    await syncSessions(supabase, device.id, events);
   }
 
   await supabase
@@ -94,4 +108,101 @@ export async function POST(request: Request) {
     assignedEmail: device.assigned_email,
     status: device.status,
   });
+}
+
+/**
+ * Turns a batch of raw sightings into open/closed sessions: when a
+ * mismatched (or WhatsApp) identity was first seen, when it was last seen,
+ * how many polls it appeared in, and how many of those it was the
+ * foreground window. Only tracks identities worth tracking — the assigned
+ * (correct) email is never session-tracked, keeping this narrow to the
+ * same non-assigned-identity signal the rest of the app surfaces.
+ */
+async function syncSessions(
+  supabase: ReturnType<typeof createAdminClient>,
+  deviceId: string,
+  events: IncomingEvent[]
+) {
+  const trackable = events.filter(isTrackable).sort(
+    (a, b) => new Date(a.capturedAt).getTime() - new Date(b.capturedAt).getTime()
+  );
+
+  const { data: openSessions } = await supabase
+    .from("sessions")
+    .select("id, detected_identity, last_seen_at, total_hits, foreground_hits")
+    .eq("device_id", deviceId)
+    .is("ended_at", null);
+
+  const open = new Map((openSessions ?? []).map((s) => [s.detected_identity, s]));
+  const touched = new Set<string>();
+
+  for (const e of trackable) {
+    touched.add(e.detectedIdentity);
+    const current = open.get(e.detectedIdentity);
+    const capturedAt = new Date(e.capturedAt).toISOString();
+
+    if (!current) {
+      const { data: inserted } = await supabase
+        .from("sessions")
+        .insert({
+          device_id: deviceId,
+          detected_identity: e.detectedIdentity,
+          channel: e.channel,
+          started_at: capturedAt,
+          last_seen_at: capturedAt,
+          total_hits: 1,
+          foreground_hits: e.isForeground ? 1 : 0,
+        })
+        .select("id, detected_identity, last_seen_at, total_hits, foreground_hits")
+        .single();
+      if (inserted) open.set(e.detectedIdentity, inserted);
+      continue;
+    }
+
+    const gap = new Date(capturedAt).getTime() - new Date(current.last_seen_at).getTime();
+    if (gap > SESSION_GAP_MS) {
+      // Too long a silence — treat the old sighting as closed and start a
+      // fresh session rather than stretching one across the gap.
+      await supabase
+        .from("sessions")
+        .update({ ended_at: current.last_seen_at })
+        .eq("id", current.id);
+
+      const { data: inserted } = await supabase
+        .from("sessions")
+        .insert({
+          device_id: deviceId,
+          detected_identity: e.detectedIdentity,
+          channel: e.channel,
+          started_at: capturedAt,
+          last_seen_at: capturedAt,
+          total_hits: 1,
+          foreground_hits: e.isForeground ? 1 : 0,
+        })
+        .select("id, detected_identity, last_seen_at, total_hits, foreground_hits")
+        .single();
+      if (inserted) open.set(e.detectedIdentity, inserted);
+      continue;
+    }
+
+    const updated = {
+      last_seen_at: capturedAt,
+      total_hits: current.total_hits + 1,
+      foreground_hits: current.foreground_hits + (e.isForeground ? 1 : 0),
+    };
+    await supabase.from("sessions").update(updated).eq("id", current.id);
+    open.set(e.detectedIdentity, { ...current, ...updated });
+  }
+
+  // Any session left open that this batch never touched, and hasn't been
+  // heard from in a while, is presumed closed (window/tab was closed).
+  const staleCutoff = Date.now() - SESSION_GAP_MS;
+  for (const [identity, session] of open) {
+    if (touched.has(identity)) continue;
+    if (new Date(session.last_seen_at).getTime() > staleCutoff) continue;
+    await supabase
+      .from("sessions")
+      .update({ ended_at: session.last_seen_at })
+      .eq("id", session.id);
+  }
 }

@@ -53,6 +53,7 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
                     detectedIdentity = e.DetectedIdentity,
                     isMismatch = e.IsMismatch,
                     confidence = e.Confidence == EventConfidence.High ? "high" : "low",
+                    isForeground = e.IsForeground,
                 }),
             });
 

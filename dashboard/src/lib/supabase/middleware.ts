@@ -30,7 +30,7 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isProtected =
-    path.startsWith("/devices") || path.startsWith("/alerts");
+    path.startsWith("/devices") || path.startsWith("/alerts") || path.startsWith("/activity");
 
   const applyCookies = (res: NextResponse) => {
     cookiesToSet.forEach(({ name, value, options }) => res.cookies.set(name, value, options));

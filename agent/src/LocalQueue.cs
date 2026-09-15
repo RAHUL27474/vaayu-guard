@@ -10,7 +10,8 @@ public record QueuedEvent(
     ActivityChannel Channel,
     string? DetectedIdentity,
     bool IsMismatch,
-    EventConfidence Confidence);
+    EventConfidence Confidence,
+    bool IsForeground);
 
 /// <summary>
 /// SQLite-backed offline queue at %ProgramData%\VaayuGuard\queue.db. Events
@@ -32,22 +33,41 @@ public class LocalQueue
     private void Initialize()
     {
         using var conn = Open();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
-            CREATE TABLE IF NOT EXISTS events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                captured_at TEXT NOT NULL,
-                process_name TEXT NOT NULL,
-                window_title TEXT NOT NULL,
-                channel TEXT NOT NULL,
-                detected_identity TEXT,
-                is_mismatch INTEGER NOT NULL,
-                confidence TEXT NOT NULL,
-                synced INTEGER NOT NULL DEFAULT 0
-            );
-            CREATE INDEX IF NOT EXISTS idx_events_unsynced ON events (synced);
-            """;
-        cmd.ExecuteNonQuery();
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                CREATE TABLE IF NOT EXISTS events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    captured_at TEXT NOT NULL,
+                    process_name TEXT NOT NULL,
+                    window_title TEXT NOT NULL,
+                    channel TEXT NOT NULL,
+                    detected_identity TEXT,
+                    is_mismatch INTEGER NOT NULL,
+                    confidence TEXT NOT NULL,
+                    is_foreground INTEGER NOT NULL DEFAULT 0,
+                    synced INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE INDEX IF NOT EXISTS idx_events_unsynced ON events (synced);
+                """;
+            cmd.ExecuteNonQuery();
+        }
+
+        // A queue.db from before is_foreground existed won't have the
+        // column — CREATE TABLE IF NOT EXISTS leaves it untouched, so add
+        // it explicitly for machines that already ran an older build.
+        bool hasColumn;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT COUNT(*) FROM pragma_table_info('events') WHERE name = 'is_foreground';";
+            hasColumn = Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+        }
+        if (!hasColumn)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "ALTER TABLE events ADD COLUMN is_foreground INTEGER NOT NULL DEFAULT 0;";
+            cmd.ExecuteNonQuery();
+        }
     }
 
     private SqliteConnection Open()
@@ -62,8 +82,8 @@ public class LocalQueue
         using var conn = Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            INSERT INTO events (captured_at, process_name, window_title, channel, detected_identity, is_mismatch, confidence)
-            VALUES ($capturedAt, $processName, $windowTitle, $channel, $detectedIdentity, $isMismatch, $confidence);
+            INSERT INTO events (captured_at, process_name, window_title, channel, detected_identity, is_mismatch, confidence, is_foreground)
+            VALUES ($capturedAt, $processName, $windowTitle, $channel, $detectedIdentity, $isMismatch, $confidence, $isForeground);
             """;
         cmd.Parameters.AddWithValue("$capturedAt", DateTimeOffset.UtcNow.ToString("o"));
         cmd.Parameters.AddWithValue("$processName", evt.ProcessName);
@@ -72,6 +92,7 @@ public class LocalQueue
         cmd.Parameters.AddWithValue("$detectedIdentity", (object?)evt.DetectedIdentity ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$isMismatch", evt.IsMismatch ? 1 : 0);
         cmd.Parameters.AddWithValue("$confidence", evt.Confidence == EventConfidence.High ? "high" : "low");
+        cmd.Parameters.AddWithValue("$isForeground", evt.IsForeground ? 1 : 0);
         cmd.ExecuteNonQuery();
     }
 
@@ -80,7 +101,7 @@ public class LocalQueue
         using var conn = Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT id, captured_at, process_name, window_title, channel, detected_identity, is_mismatch, confidence
+            SELECT id, captured_at, process_name, window_title, channel, detected_identity, is_mismatch, confidence, is_foreground
             FROM events WHERE synced = 0 ORDER BY id ASC LIMIT $limit;
             """;
         cmd.Parameters.AddWithValue("$limit", limit);
@@ -97,7 +118,8 @@ public class LocalQueue
                 reader.GetString(4) == "email" ? ActivityChannel.Email : ActivityChannel.WhatsApp,
                 reader.IsDBNull(5) ? null : reader.GetString(5),
                 reader.GetInt32(6) == 1,
-                reader.GetString(7) == "high" ? EventConfidence.High : EventConfidence.Low));
+                reader.GetString(7) == "high" ? EventConfidence.High : EventConfidence.Low,
+                reader.GetInt32(8) == 1));
         }
         return result;
     }

@@ -11,7 +11,8 @@ public record ExtractedEvent(
     ActivityChannel Channel,
     string? DetectedIdentity,
     bool IsMismatch,
-    EventConfidence Confidence);
+    EventConfidence Confidence,
+    bool IsForeground);
 
 /// <summary>
 /// Classifies a scanned window title: extracts an email address and flags
@@ -37,7 +38,8 @@ public static class IdentityExtractor
                 ActivityChannel.Email,
                 detected,
                 isMismatch,
-                EventConfidence.High);
+                EventConfidence.High,
+                window.IsForeground);
         }
 
         // No phone number is exposed in WhatsApp Web's window/tab title, so
@@ -52,7 +54,8 @@ public static class IdentityExtractor
                 ActivityChannel.WhatsApp,
                 "whatsapp_web_open",
                 false,
-                EventConfidence.Low);
+                EventConfidence.Low,
+                window.IsForeground);
         }
 
         return null;

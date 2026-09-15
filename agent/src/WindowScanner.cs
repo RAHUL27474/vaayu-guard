@@ -3,7 +3,7 @@ using System.Text;
 
 namespace VaayuMonitor.Agent;
 
-public record ScannedWindow(string ProcessName, string WindowTitle);
+public record ScannedWindow(string ProcessName, string WindowTitle, bool IsForeground);
 
 /// <summary>
 /// Enumerates top-level visible windows via raw P/Invoke, filtered to the
@@ -33,11 +33,15 @@ public class WindowScanner
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
     public IReadOnlyList<ScannedWindow> Scan()
     {
         var results = new List<ScannedWindow>();
+        var foregroundHwnd = GetForegroundWindow();
 
         EnumWindows((hWnd, _) =>
         {
@@ -65,7 +69,7 @@ public class WindowScanner
 
             if (TargetProcesses.Contains(processName))
             {
-                results.Add(new ScannedWindow(processName, title));
+                results.Add(new ScannedWindow(processName, title, hWnd == foregroundHwnd));
             }
 
             return true; // keep enumerating

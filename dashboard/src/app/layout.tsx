@@ -40,6 +40,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 <Link href="/alerts" className="hover:underline">
                   Alerts
                 </Link>
+                <Link href="/activity" className="hover:underline">
+                  Activity
+                </Link>
               </nav>
               <div className="ml-auto flex items-center gap-3 text-sm text-slate-500">
                 <span>

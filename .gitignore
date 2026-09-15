@@ -10,6 +10,10 @@ dashboard/.env*.local
 **/obj/
 agent/dist/
 
+# Distribution archives made for copying the agent to another PC
+*.rar
+*.zip
+
 # Local agent runtime data (never commit device tokens)
 **/device.token
 **/queue.db

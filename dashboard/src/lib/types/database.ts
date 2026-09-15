@@ -107,6 +107,7 @@ export type Database = {
           detected_identity: string | null
           is_mismatch: boolean
           confidence: Database["public"]["Enums"]["event_confidence"]
+          is_foreground: boolean
           created_at: string
         }
         Insert: {
@@ -119,6 +120,7 @@ export type Database = {
           detected_identity?: string | null
           is_mismatch?: boolean
           confidence?: Database["public"]["Enums"]["event_confidence"]
+          is_foreground?: boolean
           created_at?: string
         }
         Update: {
@@ -131,6 +133,7 @@ export type Database = {
           detected_identity?: string | null
           is_mismatch?: boolean
           confidence?: Database["public"]["Enums"]["event_confidence"]
+          is_foreground?: boolean
           created_at?: string
         }
         Relationships: [
@@ -197,8 +200,66 @@ export type Database = {
           },
         ]
       }
+      sessions: {
+        Row: {
+          id: number
+          device_id: string
+          detected_identity: string
+          channel: Database["public"]["Enums"]["activity_channel"]
+          started_at: string
+          last_seen_at: string
+          ended_at: string | null
+          total_hits: number
+          foreground_hits: number
+        }
+        Insert: {
+          id?: number
+          device_id: string
+          detected_identity: string
+          channel: Database["public"]["Enums"]["activity_channel"]
+          started_at: string
+          last_seen_at: string
+          ended_at?: string | null
+          total_hits?: number
+          foreground_hits?: number
+        }
+        Update: {
+          id?: number
+          device_id?: string
+          detected_identity?: string
+          channel?: Database["public"]["Enums"]["activity_channel"]
+          started_at?: string
+          last_seen_at?: string
+          ended_at?: string | null
+          total_hits?: number
+          foreground_hits?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
-    Views: Record<string, never>
+    Views: {
+      daily_identity_activity: {
+        Row: {
+          device_id: string
+          detected_identity: string
+          channel: Database["public"]["Enums"]["activity_channel"]
+          activity_date: string
+          session_count: number
+          total_duration_seconds: number
+          foreground_hits: number
+          total_hits: number
+        }
+        Relationships: []
+      }
+    }
     Functions: {
       is_admin_like: {
         Args: { uid: string }
@@ -229,3 +290,6 @@ export type Profile = Tables<"profiles">
 export type Device = Tables<"devices">
 export type ActivityEvent = Tables<"activity_events">
 export type Alert = Tables<"alerts">
+export type Session = Tables<"sessions">
+export type DailyIdentityActivity =
+  Database["public"]["Views"]["daily_identity_activity"]["Row"]
