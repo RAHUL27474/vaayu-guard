@@ -69,6 +69,7 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
                     windowTitle = w.WindowTitle,
                     isForeground = w.IsForeground,
                 }),
+                agentVersion = SelfUpdater.CurrentAgentVersion,
             });
 
             var res = await http.SendAsync(request, ct);

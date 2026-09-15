@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { events?: IncomingEvent[]; windowActivity?: IncomingWindowActivity[] };
+  let body: { events?: IncomingEvent[]; windowActivity?: IncomingWindowActivity[]; agentVersion?: number };
   try {
     body = await request.json();
   } catch {
@@ -118,7 +118,10 @@ export async function POST(request: Request) {
 
   await supabase
     .from("devices")
-    .update({ last_seen_at: new Date().toISOString() })
+    .update({
+      last_seen_at: new Date().toISOString(),
+      ...(body.agentVersion ? { agent_version: body.agentVersion } : {}),
+    })
     .eq("id", device.id);
 
   // One-shot "close this window" commands queued from the Alerts page —

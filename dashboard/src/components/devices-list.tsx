@@ -197,13 +197,14 @@ export function DevicesList({
               <th className="p-3">Status</th>
               <th className="p-3">Last seen</th>
               <th className="p-3">Consent</th>
+              <th className="p-3">Version</th>
               {isSuperadmin ? <th className="p-3 text-right">Actions</th> : null}
             </tr>
           </thead>
           <tbody>
             {devices.length === 0 ? (
               <tr>
-                <td colSpan={8} className="p-6 text-center text-slate-500">
+                <td colSpan={9} className="p-6 text-center text-slate-500">
                   No devices enrolled yet.
                 </td>
               </tr>
@@ -226,6 +227,9 @@ export function DevicesList({
                     {d.consent_acknowledged_at
                       ? new Date(d.consent_acknowledged_at).toLocaleDateString()
                       : "pending"}
+                  </td>
+                  <td className="p-3 text-slate-500">
+                    {d.agent_version ? `v${d.agent_version}` : "—"}
                   </td>
                   {isSuperadmin ? (
                     <td className="p-3 text-right">
