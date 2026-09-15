@@ -13,15 +13,39 @@ public record UpdateManifest(
 /// Checks the dashboard for a newer published build and, if found,
 /// downloads it, verifies its hash, and swaps it into place — so updating
 /// VaayuGuard never again means walking to 11 PCs with a USB stick.
-/// The running process cannot overwrite its own exe file, so this hands
-/// off to a tiny detached helper script that waits for this process to
-/// exit, does the copy, and relaunches it.
+///
+/// A running exe's own file content can't be overwritten, but it CAN be
+/// renamed while running (Windows only locks the content, not the
+/// directory entry) — so this renames itself out of the way, writes the
+/// new build at the original path, then exits with a non-zero code and
+/// lets the Scheduled Task's own restart-on-failure setting relaunch it.
+/// An earlier version spawned a detached helper script to do the swap and
+/// relaunch instead; in production that script (and the relaunch) got
+/// killed along with this process by Task Scheduler's job-object cleanup
+/// the moment this process exited, silently discarding the update and
+/// leaving nothing running. Task Scheduler's own restart mechanism doesn't
+/// have that problem — it's not a child process of anything this process
+/// spawned.
 /// </summary>
-public class SelfUpdater(HttpClient http, AgentOptions options, ILogger<SelfUpdater> logger)
+public class SelfUpdater(HttpClient http, ILogger<SelfUpdater> logger)
 {
     // Bump alongside agent/install/stage-update.ps1's manifest version on
     // every release that should trigger already-installed agents to update.
-    public const int CurrentAgentVersion = 7;
+    public const int CurrentAgentVersion = 12;
+
+    /// <summary>
+    /// Deletes a leftover renamed-old-exe from an update applied on a
+    /// previous run, if any. Call once at startup — by then the OS has
+    /// long since released any lock the old process held on it.
+    /// </summary>
+    public static void CleanupPreviousVersion()
+    {
+        var currentExePath = Environment.ProcessPath;
+        if (string.IsNullOrEmpty(currentExePath)) return;
+        var oldPath = currentExePath + ".old";
+        try { if (File.Exists(oldPath)) File.Delete(oldPath); }
+        catch { /* best-effort — try again next start */ }
+    }
 
     public async Task CheckAndApplyAsync(CancellationToken ct)
     {
@@ -70,33 +94,29 @@ public class SelfUpdater(HttpClient http, AgentOptions options, ILogger<SelfUpda
             return;
         }
 
-        var updateDir = Path.Combine(options.ResolveDataDirectory(), "update");
-        Directory.CreateDirectory(updateDir);
-        var newExePath = Path.Combine(updateDir, "VaayuGuardAgent.new.exe");
-        await File.WriteAllBytesAsync(newExePath, bytes, ct);
-
-        // cmd, not PowerShell: no execution-policy prompt, and it's already
-        // on every Windows install. Small delay lets this process actually
-        // exit (its exe file is locked while running) before the copy.
-        var scriptPath = Path.Combine(updateDir, "apply-update.cmd");
-        var script = $"""
-            @echo off
-            timeout /t 3 /nobreak > nul
-            copy /y "{newExePath}" "{currentExePath}" > nul
-            start "" "{currentExePath}"
-            del "{newExePath}"
-            del "%~f0"
-            """;
-        await File.WriteAllTextAsync(scriptPath, script, ct);
-
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        try
         {
-            FileName = scriptPath,
-            UseShellExecute = true,
-            WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
-        });
+            var oldPath = currentExePath + ".old";
+            try { if (File.Exists(oldPath)) File.Delete(oldPath); } catch { /* ignore */ }
 
-        logger.LogInformation("Update staged — restarting now to apply v{Version}", manifest.Version);
-        Environment.Exit(0);
+            // Renaming a running exe is allowed (only its content is
+            // locked); this frees up the original path for the new build.
+            File.Move(currentExePath, oldPath);
+            await File.WriteAllBytesAsync(currentExePath, bytes, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to swap in the new build — leaving the current version running");
+            return;
+        }
+
+        logger.LogInformation(
+            "Update applied to disk (v{Version}) — exiting so the Scheduled Task's restart-on-failure relaunches it",
+            manifest.Version);
+
+        // Non-zero on purpose: this is what tells Task Scheduler to apply
+        // its RestartCount/RestartInterval policy instead of treating this
+        // as a normal, intentional completion.
+        Environment.Exit(1);
     }
 }

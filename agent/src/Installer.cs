@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security;
+using System.Text;
 
 namespace VaayuMonitor.Agent;
 
@@ -13,6 +15,8 @@ namespace VaayuMonitor.Agent;
 public static class Installer
 {
     private const string TaskName = "VaayuGuardAgent";
+    private const string WatchdogTaskName = "VaayuGuardWatchdog";
+    private const string WatchdogExeName = "VaayuGuardWatchdog.exe";
 
     public static string InstalledExePath(AgentOptions options) =>
         Path.Combine(options.ResolveInstallDirectory(), "VaayuGuardAgent.exe");
@@ -26,6 +30,60 @@ public static class Installer
             Path.GetFullPath(current),
             Path.GetFullPath(InstalledExePath(options)),
             StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Stops any other running copy of the installed exe so it can be
+    /// overwritten — e.g. re-running the installer to force an update on a
+    /// PC that's already got the agent running from a previous install.
+    /// Best-effort: a failure here just means CopyOverPossiblyLockedTarget's
+    /// rename-first fallback has to handle it instead.
+    /// </summary>
+    private static void StopOtherRunningInstances(string targetExe, ILogger logger)
+    {
+        var currentPid = Environment.ProcessId;
+        var processName = Path.GetFileNameWithoutExtension(targetExe);
+        foreach (var proc in Process.GetProcessesByName(processName))
+        {
+            using (proc)
+            {
+                if (proc.Id == currentPid) continue;
+                try
+                {
+                    proc.Kill();
+                    proc.WaitForExit(5000);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Could not stop existing agent process (PID {Pid}) before reinstalling", proc.Id);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Copies over the install target even if something still has it open —
+    /// same rename-out-of-the-way trick as SelfUpdater, as a fallback for
+    /// when StopOtherRunningInstances couldn't stop every holder in time.
+    /// </summary>
+    private static void CopyOverPossiblyLockedTarget(string sourceExe, string targetExe)
+    {
+        try
+        {
+            File.Copy(sourceExe, targetExe, overwrite: true);
+            return;
+        }
+        catch (IOException)
+        {
+            // Target is still locked — rename it out of the way (renaming,
+            // unlike overwriting content, doesn't require the lock) and
+            // write fresh instead.
+        }
+
+        var oldPath = targetExe + ".old";
+        try { if (File.Exists(oldPath)) File.Delete(oldPath); } catch { /* best-effort */ }
+        File.Move(targetExe, oldPath);
+        File.Copy(sourceExe, targetExe);
     }
 
     /// <summary>
@@ -52,9 +110,21 @@ public static class Installer
             var installDir = options.ResolveInstallDirectory();
             Directory.CreateDirectory(installDir);
             var targetExe = InstalledExePath(options);
+            var watchdogExe = Path.Combine(installDir, WatchdogExeName);
 
             var currentExe = Environment.ProcessPath!;
-            File.Copy(currentExe, targetExe, overwrite: true);
+
+            // Re-running the installer over an already-installed, currently
+            // running agent (the "just re-run the installer to force an
+            // update" path) needs the old copies stopped first — Windows
+            // won't let File.Copy overwrite a running exe's content.
+            StopOtherRunningInstances(targetExe, logger);
+            StopOtherRunningInstances(watchdogExe, logger);
+            CopyOverPossiblyLockedTarget(currentExe, targetExe);
+            // The watchdog is literally the same exe under a different
+            // filename (Program.cs branches on its own filename) — a plain
+            // copy of the exe we just installed, not the original launcher.
+            CopyOverPossiblyLockedTarget(targetExe, watchdogExe);
 
             var currentAppsettings = Path.Combine(Path.GetDirectoryName(currentExe)!, "appsettings.json");
             if (File.Exists(currentAppsettings))
@@ -64,9 +134,16 @@ public static class Installer
             }
 
             var taskWarning = "";
+            var taskRegistered = false;
+            var watchdogTaskRegistered = false;
             try
             {
-                RegisterScheduledTask(targetExe);
+                RegisterScheduledTask(TaskName, targetExe,
+                    "VaayuGuard monitoring agent.");
+                taskRegistered = true;
+                RegisterScheduledTask(WatchdogTaskName, watchdogExe,
+                    "VaayuGuard watchdog — makes sure the VaayuGuard agent stays running.");
+                watchdogTaskRegistered = true;
             }
             catch (Exception ex)
             {
@@ -83,7 +160,26 @@ public static class Installer
             var emailPath = Path.Combine(options.ResolveDataDirectory(), "assigned_email.txt");
             File.WriteAllText(emailPath, email!.Trim());
 
-            Process.Start(new ProcessStartInfo { FileName = targetExe, UseShellExecute = true });
+            // Launch it AS the Scheduled Task, not a bare Process.Start —
+            // RestartOnFailure only protects process instances Task
+            // Scheduler itself launched. A fire-and-forget Process.Start
+            // here would run fine but Task Scheduler wouldn't be watching
+            // it, so killing it would do nothing until the next logon's
+            // LogonTrigger fires a fresh (tracked) one. But confirmed live:
+            // `schtasks /run` can silently fail (non-zero exit) right after
+            // registering two tasks back-to-back — its exit code was never
+            // checked before, so the watchdog just never started and no one
+            // knew. Now falls back to a direct launch whenever /run doesn't
+            // report success, so install always ends with both running.
+            if (!taskRegistered || RunSchtasks(["/run", "/tn", TaskName], out _) != 0)
+            {
+                Process.Start(new ProcessStartInfo { FileName = targetExe, UseShellExecute = true });
+            }
+
+            if (!watchdogTaskRegistered || RunSchtasks(["/run", "/tn", WatchdogTaskName], out _) != 0)
+            {
+                Process.Start(new ProcessStartInfo { FileName = watchdogExe, UseShellExecute = true });
+            }
 
             if (!silent)
             {
@@ -121,7 +217,7 @@ public static class Installer
         thread.Join();
     }
 
-    private static void RegisterScheduledTask(string exePath)
+    private static void RegisterScheduledTask(string taskName, string exePath, string description)
     {
         // Whoever is running this installer (possibly elevated as a
         // *different* admin account than the person who logs into this PC
@@ -132,18 +228,84 @@ public static class Installer
         var interactiveUser = GetInteractiveConsoleUser() ?? Environment.UserName;
 
         // Ignore failure — fine if the task doesn't exist yet on first install.
-        RunSchtasks(["/delete", "/tn", TaskName, "/f"], out _);
+        RunSchtasks(["/delete", "/tn", taskName, "/f"], out _);
 
-        // /it (interactive token) is required alongside /ru for an AtLogOn
-        // task to run using the user's own interactive logon — without it,
-        // schtasks expects a stored password (/rp) for that account instead.
-        var create = RunSchtasks(
-            ["/create", "/tn", TaskName, "/tr", exePath, "/sc", "onlogon", "/ru", interactiveUser, "/it", "/rl", "highest", "/f"],
-            out var output);
-        if (create != 0)
+        // The plain `schtasks /create /tr ... /sc onlogon` command-line form
+        // has NO way to configure restart-on-failure, so this imports a full
+        // Task XML instead (via schtasks /create /xml). RestartOnFailure
+        // covers a voluntary non-zero exit (e.g. SelfUpdater's own
+        // exit(1)-after-update). It does NOT reliably cover every other way
+        // this can stop running (confirmed live: a manual "End Task" is
+        // recorded as a forced termination, which Task Scheduler treats as
+        // an intentional stop rather than a failure) — that's what the
+        // separate Watchdog process (see Watchdog.cs and the second
+        // registration of this same task type below) is for.
+        var xmlPath = Path.Combine(Path.GetTempPath(), $"VaayuGuardTask_{Guid.NewGuid():N}.xml");
+        File.WriteAllText(xmlPath, BuildTaskXml(exePath, interactiveUser, description), Encoding.Unicode);
+        try
         {
-            throw new InvalidOperationException($"schtasks /create exited with code {create}: {output}");
+            var create = RunSchtasks(["/create", "/tn", taskName, "/xml", xmlPath, "/f"], out var output);
+            if (create != 0)
+            {
+                throw new InvalidOperationException($"schtasks /create (xml) exited with code {create}: {output}");
+            }
         }
+        finally
+        {
+            try { File.Delete(xmlPath); } catch { /* best-effort */ }
+        }
+    }
+
+    private static string BuildTaskXml(string exePath, string userId, string description)
+    {
+        var user = SecurityElement.Escape(userId);
+        var exe = SecurityElement.Escape(exePath);
+        var desc = SecurityElement.Escape(description);
+        return $"""
+            <?xml version="1.0" encoding="UTF-16"?>
+            <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+              <RegistrationInfo>
+                <Description>{desc}</Description>
+              </RegistrationInfo>
+              <Triggers>
+                <LogonTrigger>
+                  <Enabled>true</Enabled>
+                  <UserId>{user}</UserId>
+                </LogonTrigger>
+              </Triggers>
+              <Principals>
+                <Principal id="Author">
+                  <UserId>{user}</UserId>
+                  <LogonType>InteractiveToken</LogonType>
+                  <RunLevel>HighestAvailable</RunLevel>
+                </Principal>
+              </Principals>
+              <Settings>
+                <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+                <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+                <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+                <AllowHardTerminate>true</AllowHardTerminate>
+                <StartWhenAvailable>true</StartWhenAvailable>
+                <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+                <AllowStartOnDemand>true</AllowStartOnDemand>
+                <Enabled>true</Enabled>
+                <Hidden>false</Hidden>
+                <RunOnlyIfIdle>false</RunOnlyIfIdle>
+                <WakeToRun>false</WakeToRun>
+                <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+                <Priority>7</Priority>
+                <RestartOnFailure>
+                  <Interval>PT1M</Interval>
+                  <Count>999</Count>
+                </RestartOnFailure>
+              </Settings>
+              <Actions Context="Author">
+                <Exec>
+                  <Command>{exe}</Command>
+                </Exec>
+              </Actions>
+            </Task>
+            """;
     }
 
     /// <summary>

@@ -5,6 +5,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- The Worker SDK defaults to a console app, which pops a visible
+         (closable!) black window on every launch — closing it via its own
+         X kills the process instantly, no Task Manager needed. Confirmed
+         live: this is very likely what's been making the agent/watchdog
+         vanish throughout today's testing. WinExe runs with no console at
+         all, silently in the background, with no window for anyone to
+         close. -->
+    <OutputType>WinExe</OutputType>
     <RootNamespace>VaayuMonitor.Agent</RootNamespace>
     <AssemblyName>VaayuGuardAgent</AssemblyName>
 
