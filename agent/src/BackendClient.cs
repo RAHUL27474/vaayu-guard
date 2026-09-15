@@ -9,14 +9,17 @@ public record CheckinResult(bool Ok, int Accepted, string AssignedEmail, string 
 /// <summary>Talks to the dashboard's /api/agent/* route handlers over HTTPS.</summary>
 public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
 {
-    public async Task<EnrollResult?> EnrollAsync(string enrollmentToken, string hostname, CancellationToken ct)
+    public Task<EnrollResult?> EnrollAsync(string enrollmentToken, string hostname, CancellationToken ct) =>
+        EnrollCoreAsync(new { token = enrollmentToken, hostname }, ct);
+
+    public Task<EnrollResult?> EnrollByEmailAsync(string email, string hostname, CancellationToken ct) =>
+        EnrollCoreAsync(new { email, hostname }, ct);
+
+    private async Task<EnrollResult?> EnrollCoreAsync(object payload, CancellationToken ct)
     {
         try
         {
-            var res = await http.PostAsJsonAsync(
-                "/api/agent/enroll",
-                new { token = enrollmentToken, hostname },
-                ct);
+            var res = await http.PostAsJsonAsync("/api/agent/enroll", payload, ct);
 
             if (!res.IsSuccessStatusCode)
             {

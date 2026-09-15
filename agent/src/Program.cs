@@ -22,4 +22,15 @@ builder.Services.AddHttpClient<SelfUpdater>(client =>
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();
+
+// Double-clicked from Downloads/Desktop/wherever instead of running from
+// the installed location — act as our own installer instead of starting
+// the background worker in place.
+if (!Installer.IsRunningInstalled(agentOptions))
+{
+    var installLogger = host.Services.GetRequiredService<ILogger<Program>>();
+    Installer.Run(agentOptions, installLogger);
+    return;
+}
+
 host.Run();
