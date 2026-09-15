@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/auth-guard";
 import { createClient } from "@/lib/supabase/server";
 import { AlertsList } from "@/components/alerts-list";
+import { AutoRefresh } from "@/components/auto-refresh";
 import type { Device } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
@@ -20,11 +21,14 @@ export default async function AlertsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Alerts</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Non-assigned email/WhatsApp activity detected on company PCs.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Alerts</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Non-assigned email/WhatsApp activity detected on company PCs.
+          </p>
+        </div>
+        <AutoRefresh intervalSeconds={15} />
       </div>
       <AlertsList alerts={alerts ?? []} deviceMap={Object.fromEntries(deviceMap)} />
     </div>
