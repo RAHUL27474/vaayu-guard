@@ -39,19 +39,68 @@ public class WindowScanner
     private static extern IntPtr GetForegroundWindow();
 
     [DllImport("user32.dll")]
-    private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
 
-    private const uint WM_CLOSE = 0x0010;
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    private static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    private const int SW_RESTORE = 9;
+    private const byte VK_CONTROL = 0x11;
+    private const byte VK_W = 0x57;
+    private const uint KEYEVENTF_KEYUP = 0x0002;
 
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
     /// <summary>
-    /// Asks a window to close — the same signal Windows sends when you
-    /// click its own X button. The app decides what happens next (prompts
-    /// to save, closes one tab vs. the whole window, etc.) — this never
-    /// force-kills the process or destroys data itself.
+    /// Closes just the one tab showing the flagged identity — never the
+    /// whole window. A window-level WM_CLOSE on a multi-tab browser window
+    /// triggers Chrome's own "Close all N tabs?" confirmation, which
+    /// nothing here can (or should) click through; a real Ctrl+W only
+    /// closes the active tab, no confirmation needed. This only ever
+    /// affects the exact tab that matched — the caller re-classifies the
+    /// window's title immediately before calling this, so if the user had
+    /// since switched to a different tab, this is never invoked at all.
+    /// Momentarily steals focus (brings the window to front) — visible by
+    /// design, not a silent background action.
     /// </summary>
-    public static void RequestClose(IntPtr hwnd) => PostMessage(hwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+    public static void CloseActiveTab(IntPtr hwnd)
+    {
+        // The trick is attaching to whichever thread currently OWNS the
+        // foreground lock — not to the target window's thread — since
+        // Windows only lets the foreground-owning thread (and anything
+        // attached to it) change the foreground window.
+        var currentForeground = GetForegroundWindow();
+        GetWindowThreadProcessId(currentForeground, out var foregroundThreadId);
+        var currentThreadId = GetCurrentThreadId();
+
+        var attached = foregroundThreadId != 0 && foregroundThreadId != currentThreadId
+            && AttachThreadInput(currentThreadId, foregroundThreadId, true);
+        try
+        {
+            ShowWindow(hwnd, SW_RESTORE);
+            SetForegroundWindow(hwnd);
+            Thread.Sleep(150); // let the window actually take focus before sending keys
+
+            keybd_event(VK_CONTROL, 0, 0, UIntPtr.Zero);
+            keybd_event(VK_W, 0, 0, UIntPtr.Zero);
+            Thread.Sleep(30);
+            keybd_event(VK_W, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+            keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+        }
+        finally
+        {
+            if (attached) AttachThreadInput(currentThreadId, foregroundThreadId, false);
+        }
+    }
 
     public IReadOnlyList<ScannedWindow> Scan()
     {
