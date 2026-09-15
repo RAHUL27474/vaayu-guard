@@ -3,7 +3,7 @@ using System.Text;
 
 namespace VaayuMonitor.Agent;
 
-public record ScannedWindow(string ProcessName, string WindowTitle, bool IsForeground);
+public record ScannedWindow(string ProcessName, string WindowTitle, bool IsForeground, IntPtr Hwnd);
 
 /// <summary>
 /// Enumerates every visible top-level window via raw P/Invoke — every open
@@ -38,7 +38,20 @@ public class WindowScanner
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
 
+    [DllImport("user32.dll")]
+    private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    private const uint WM_CLOSE = 0x0010;
+
     private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+
+    /// <summary>
+    /// Asks a window to close — the same signal Windows sends when you
+    /// click its own X button. The app decides what happens next (prompts
+    /// to save, closes one tab vs. the whole window, etc.) — this never
+    /// force-kills the process or destroys data itself.
+    /// </summary>
+    public static void RequestClose(IntPtr hwnd) => PostMessage(hwnd, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
 
     public IReadOnlyList<ScannedWindow> Scan()
     {
@@ -71,7 +84,7 @@ public class WindowScanner
 
             if (!ExcludedProcesses.Contains(processName))
             {
-                results.Add(new ScannedWindow(processName, title, hWnd == foregroundHwnd));
+                results.Add(new ScannedWindow(processName, title, hWnd == foregroundHwnd, hWnd));
             }
 
             return true; // keep enumerating

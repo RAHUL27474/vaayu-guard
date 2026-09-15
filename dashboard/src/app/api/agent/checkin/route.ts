@@ -121,6 +121,23 @@ export async function POST(request: Request) {
     .update({ last_seen_at: new Date().toISOString() })
     .eq("id", device.id);
 
+  // One-shot "close this window" commands queued from the Alerts page —
+  // delivered here, then immediately cleared so they fire once per click.
+  const { data: pendingCloses } = await supabase
+    .from("alerts")
+    .select("id, detected_identity")
+    .eq("device_id", device.id)
+    .eq("status", "open")
+    .not("close_requested_at", "is", null);
+
+  const closeRequests = (pendingCloses ?? []).map((a) => a.detected_identity);
+  if (pendingCloses && pendingCloses.length > 0) {
+    await supabase
+      .from("alerts")
+      .update({ close_requested_at: null })
+      .in("id", pendingCloses.map((a) => a.id));
+  }
+
   // Echo back the current assignment/status so the agent stays in sync if
   // the admin changes it later, without needing a reinstall.
   return NextResponse.json({
@@ -128,6 +145,7 @@ export async function POST(request: Request) {
     accepted: events.length,
     assignedEmail: device.assigned_email,
     status: device.status,
+    closeRequests,
   });
 }
 

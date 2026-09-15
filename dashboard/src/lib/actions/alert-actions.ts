@@ -21,3 +21,26 @@ export async function setAlertStatus(
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
+
+/**
+ * Asks the agent to close the specific window it flagged for this alert —
+ * a graceful WM_CLOSE (same as clicking the window's own X), not a
+ * forced kill and not a persistent block. Delivered on the device's next
+ * check-in (within its poll interval) and consumed once — reopening the
+ * same identity later needs another click.
+ */
+export async function requestCloseWindow(
+  alertId: number
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await requireAdmin();
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("alerts")
+    .update({
+      close_requested_at: new Date().toISOString(),
+      close_requested_by: session.id,
+    })
+    .eq("id", alertId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}

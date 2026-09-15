@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace VaayuMonitor.Agent;
 
 public record EnrollResult(string DeviceId, string DeviceToken, string AssignedEmail);
-public record CheckinResult(bool Ok, int Accepted, string AssignedEmail, string Status);
+public record CheckinResult(bool Ok, int Accepted, string AssignedEmail, string Status, IReadOnlyList<string> CloseRequests);
 
 /// <summary>Talks to the dashboard's /api/agent/* route handlers over HTTPS.</summary>
 public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
@@ -81,7 +81,7 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
             var body = await res.Content.ReadFromJsonAsync<CheckinResponseDto>(cancellationToken: ct);
             return body is null
                 ? null
-                : new CheckinResult(body.Ok, body.Accepted, body.AssignedEmail, body.Status);
+                : new CheckinResult(body.Ok, body.Accepted, body.AssignedEmail, body.Status, body.CloseRequests ?? []);
         }
         catch (Exception ex)
         {
@@ -116,5 +116,6 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
         [property: JsonPropertyName("ok")] bool Ok,
         [property: JsonPropertyName("accepted")] int Accepted,
         [property: JsonPropertyName("assignedEmail")] string AssignedEmail,
-        [property: JsonPropertyName("status")] string Status);
+        [property: JsonPropertyName("status")] string Status,
+        [property: JsonPropertyName("closeRequests")] List<string>? CloseRequests);
 }

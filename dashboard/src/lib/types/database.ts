@@ -161,6 +161,8 @@ export type Database = {
           status: Database["public"]["Enums"]["alert_status"]
           acknowledged_by: string | null
           acknowledged_at: string | null
+          close_requested_at: string | null
+          close_requested_by: string | null
         }
         Insert: {
           id?: number
@@ -173,6 +175,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["alert_status"]
           acknowledged_by?: string | null
           acknowledged_at?: string | null
+          close_requested_at?: string | null
+          close_requested_by?: string | null
         }
         Update: {
           id?: number
@@ -185,6 +189,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["alert_status"]
           acknowledged_by?: string | null
           acknowledged_at?: string | null
+          close_requested_at?: string | null
+          close_requested_by?: string | null
         }
         Relationships: [
           {
@@ -197,6 +203,13 @@ export type Database = {
           {
             foreignKeyName: "alerts_acknowledged_by_fkey"
             columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alerts_close_requested_by_fkey"
+            columns: ["close_requested_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
