@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Security;
 using System.Text;
+using Microsoft.Win32;
 
 namespace VaayuMonitor.Agent;
 
@@ -17,6 +18,13 @@ public static class Installer
     private const string TaskName = "VaayuGuardAgent";
     private const string WatchdogTaskName = "VaayuGuardWatchdog";
     private const string WatchdogExeName = "VaayuGuardWatchdog.exe";
+
+    // The WhatsApp identity helper extension — see extension/README.md for
+    // how this ID and URL are produced (crx3, a stable signing key kept out
+    // of the repo). Force-installing it here means CREs never see an
+    // "Add to Chrome"/Developer-mode step at all.
+    private const string ExtensionId = "amkaccikccmobblkcmnndhengmpacfba";
+    private const string ExtensionUpdateUrl = "https://vaayuguard-bice.vercel.app/extension/update.xml";
 
     public static string InstalledExePath(AgentOptions options) =>
         Path.Combine(options.ResolveInstallDirectory(), "VaayuGuardAgent.exe");
@@ -59,6 +67,46 @@ public static class Installer
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Force-installs the WhatsApp identity helper extension in both Chrome
+    /// and Edge via the ExtensionInstallForcelist policy — the standard way
+    /// to silently deploy a self-hosted (non-Web-Store) extension, so a CRE
+    /// never sees an install prompt or a Developer-mode toggle. Requires
+    /// HKLM write access; throws (caught by the caller) if not elevated.
+    /// </summary>
+    private static void ForceInstallBrowserExtension()
+    {
+        var policyValue = $"{ExtensionId};{ExtensionUpdateUrl}";
+        SetForcelistEntry(@"SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist", policyValue);
+        SetForcelistEntry(@"SOFTWARE\Policies\Microsoft\Edge\ExtensionInstallForcelist", policyValue);
+    }
+
+    /// <summary>
+    /// ExtensionInstallForcelist is a numbered list (values named "1", "2",
+    /// ...) — finds the first free slot, or the slot this extension already
+    /// occupies (so reinstalling doesn't pile up duplicate entries), and
+    /// writes there.
+    /// </summary>
+    private static void SetForcelistEntry(string keyPath, string value)
+    {
+        using var key = Registry.LocalMachine.CreateSubKey(keyPath, writable: true)
+            ?? throw new InvalidOperationException($"Could not open/create {keyPath}");
+
+        string? targetName = null;
+        var nextFree = 1;
+        foreach (var name in key.GetValueNames())
+        {
+            if (!int.TryParse(name, out var n)) continue;
+            if (n >= nextFree) nextFree = n + 1;
+            if (string.Equals(key.GetValue(name) as string, value, StringComparison.Ordinal))
+            {
+                targetName = name; // already present — overwrite in place
+            }
+        }
+
+        key.SetValue(targetName ?? nextFree.ToString(), value, RegistryValueKind.String);
     }
 
     /// <summary>
@@ -146,6 +194,13 @@ public static class Installer
             {
                 try { File.Delete(installedAppsettings); } catch { /* fine if it wasn't there */ }
             }
+
+            // Best-effort — needs admin (HKLM), which a CRE double-clicking
+            // this exe usually won't have. Silently skipped when it fails;
+            // install.ps1 (run once by IT, elevated) sets the same policy
+            // for PCs where this didn't take.
+            try { ForceInstallBrowserExtension(); }
+            catch (Exception ex) { logger.LogWarning(ex, "Could not set browser extension force-install policy"); }
 
             var taskWarning = "";
             var taskRegistered = false;

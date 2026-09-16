@@ -86,6 +86,44 @@ Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Pr
 Write-Host "Starting agent now (so you don't have to log off/on to test) ..."
 Start-ScheduledTask -TaskName $taskName
 
+# Force-installs the WhatsApp identity helper extension in Chrome and Edge
+# (no "Add to Chrome"/Developer-mode step for the CRE to click through) —
+# needs HKLM write access, which this script has (it must be run elevated)
+# but the CRE-facing single-exe installer usually doesn't. See
+# extension/README.md for how the extension ID/update URL were produced.
+$extensionId = "amkaccikccmobblkcmnndhengmpacfba"
+$extensionUpdateUrl = "https://vaayuguard-bice.vercel.app/extension/update.xml"
+$forcelistValue = "$extensionId;$extensionUpdateUrl"
+
+function Set-ForcelistEntry {
+    param([string]$KeyPath)
+    # New-Item -Force on an ALREADY-EXISTING registry key wipes its existing
+    # values instead of leaving them alone (confirmed live) -- would silently
+    # delete any other extension already force-installed via this same
+    # policy. Only create it when it's genuinely missing.
+    if (-not (Test-Path $KeyPath)) { New-Item -Path $KeyPath -Force | Out-Null }
+    $existing = Get-Item -Path $KeyPath
+    $nextFree = 1
+    $targetName = $null
+    foreach ($name in $existing.GetValueNames()) {
+        if ($name -match '^\d+$') {
+            $n = [int]$name
+            if ($n -ge $nextFree) { $nextFree = $n + 1 }
+            if ((Get-ItemPropertyValue -Path $KeyPath -Name $name) -eq $forcelistValue) { $targetName = $name }
+        }
+    }
+    if (-not $targetName) { $targetName = "$nextFree" }
+    Set-ItemProperty -Path $KeyPath -Name $targetName -Value $forcelistValue -Type String
+}
+
+try {
+    Set-ForcelistEntry -KeyPath "HKLM:\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist"
+    Set-ForcelistEntry -KeyPath "HKLM:\SOFTWARE\Policies\Microsoft\Edge\ExtensionInstallForcelist"
+    Write-Host "WhatsApp identity extension force-install policy set for Chrome and Edge." -ForegroundColor Green
+} catch {
+    Write-Warning "Could not set the browser extension force-install policy: $_"
+}
+
 Write-Host ""
 Write-Host "Done. The agent will also start automatically at every future logon." -ForegroundColor Green
 Write-Host "On first run it will show the employee monitoring notice once." -ForegroundColor Green

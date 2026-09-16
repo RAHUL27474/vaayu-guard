@@ -27,3 +27,9 @@ dashboard/public/agent/*.exe
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Private key used to sign the browser extension's .crx — must stay the
+# same across rebuilds (it's what makes the extension ID stable for the
+# ExtensionInstallForcelist policy), so it's kept out of the public repo
+# entirely rather than rotated per-build. Back this up somewhere safe.
+keys/

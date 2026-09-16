@@ -27,20 +27,52 @@ breaking anything — but the module name list in `inject.js` will need an
 update to restore number detection. This is expected, ongoing maintenance,
 not a one-time build.
 
-## Installing it (pilot — one browser at a time)
+## Installing it — automatic (normal path)
+
+The agent installer (both the single-exe one and `install.ps1`) sets the
+`ExtensionInstallForcelist` policy for Chrome and Edge automatically, which
+silently installs this extension for the CRE — no "Add to Chrome" prompt,
+no Developer mode, nothing for them to click. This only works when the
+installer runs elevated (HKLM write), which:
+
+- **`install.ps1`** always has (it's meant to be run "as Administrator").
+- The **single-exe installer** only has if the CRE happens to be a local
+  admin or runs it elevated. When it doesn't, this step is skipped
+  silently (same graceful-degradation as the Scheduled Task registration)
+  — re-run `install.ps1` once, elevated, to set it retroactively.
+
+The policy takes effect the next time Chrome/Edge restarts.
+
+## Installing it — manual (dev/debugging only)
 
 1. Open `chrome://extensions` (or `edge://extensions`).
 2. Enable **Developer mode** (top-right toggle).
 3. **Load unpacked** → select this `extension/` folder.
 
-That's it — no build step, no packaging.
+## How the automatic install works
 
-## Rolling out to more PCs later
+`dashboard/public/extension/` holds two generated files that make the
+force-install policy possible:
 
-For the pilot (1-2 PCs) "Load unpacked" by hand is fine. Rolling out to the
-full fleet without repeating that by hand on every PC needs the
-`ExtensionInstallForcelist` registry policy (works via local policy, not
-just Active Directory) pointing at a self-hosted signed `.crx` + update
-manifest XML — not set up yet. Revisit once the pilot confirms the
-number-detection technique itself is reliable enough to be worth the
-packaging/signing/hosting work.
+- `vaayuguard.crx` — this folder, packaged and signed.
+- `update.xml` — the Omaha-format update manifest Chrome/Edge poll,
+  pointing at the `.crx` above.
+
+Both are rebuilt with:
+
+```powershell
+npx --yes crx3 -p keys\vaayuguard-extension.pem -o dashboard\public\extension\vaayuguard.crx -x dashboard\public\extension\update.xml --appVersion <next-version> --crxURL https://vaayuguard-bice.vercel.app/extension/vaayuguard.crx -- extension
+```
+
+`keys/vaayuguard-extension.pem` is the signing key — **never commit it**
+(it's gitignored). It must stay the same across rebuilds: the extension ID
+(`amkaccikccmobblkcmnndhengmpacfba`, hardcoded into `Installer.cs` and
+`install.ps1`) is derived from this key's public half, so losing/rotating
+it means every already-deployed policy points at a dead ID and the whole
+fleet needs the new ID pushed out again. Back this file up somewhere safe,
+outside the repo.
+
+After changing anything in `extension/`, bump `--appVersion`, rebuild, then
+redeploy the dashboard (`npx vercel --prod` from `dashboard/`) so the new
+`.crx`/`update.xml` go live — Chrome/Edge will pick up the update on their
+own periodic policy check, no reinstall needed.
