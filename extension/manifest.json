@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "VaayuGuard WhatsApp Identity Helper",
+  "version": "1.0",
+  "description": "Tells the VaayuGuard monitoring agent which WhatsApp account is signed in on this PC. Never reads message content.",
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "http://127.0.0.1:8737/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["inject.js"],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

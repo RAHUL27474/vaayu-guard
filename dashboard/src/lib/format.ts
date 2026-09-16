@@ -10,6 +10,21 @@ export function formatDuration(totalSeconds: number): string {
   return `${secs}s`;
 }
 
+/**
+ * "919876543210" -> "+91 98765 43210". Falls back to the raw value for
+ * anything that doesn't look like a plain 10-digit-plus-91-country-code
+ * number, so the coarse "whatsapp_web_open" placeholder (no number known
+ * yet) still displays as-is instead of being mangled.
+ */
+export function formatWhatsAppIdentity(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return `+91 ${digits.slice(2, 7)} ${digits.slice(7)}`;
+  }
+  if (digits.length === raw.length && digits.length >= 10) return `+${digits}`;
+  return raw;
+}
+
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
     year: "numeric",

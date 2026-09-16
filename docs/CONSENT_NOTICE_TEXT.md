@@ -6,18 +6,19 @@ and again whenever the notice version changes (see
 widened scope must be re-acknowledged, not just implied by the first ever
 install. Only an explicit "OK" click counts as acknowledgment.
 
-## Notice text (version 2, current)
+## Notice text (version 3, current)
 
 > **VaayuTrip Monitoring Notice**
 >
 > This is a company-owned computer. VaayuTrip monitors this PC to check
 > that the company email account assigned to this desktop is the one in
-> use, to detect when WhatsApp Web is open, and to log which apps and
-> browser tabs (by title only) are open during working hours.
+> use, to detect when WhatsApp Web is open and which WhatsApp number is
+> signed in (via a companion browser extension), and to log which apps
+> and browser tabs (by title only) are open during working hours.
 >
 > This tool does **not** record keystrokes, screenshots, or the content of
 > your messages, emails, or documents — only window/tab titles and which
-> account is signed in.
+> account/number is signed in.
 >
 > By clicking OK, you acknowledge this notice.
 >
@@ -30,6 +31,9 @@ install. Only an explicit "OK" click counts as acknowledgment.
   Gmail/WhatsApp) — still titles only, never content/screenshots/keystrokes.
   Existing installs are re-prompted with this notice automatically the next
   time the agent runs.
+- **v3**: widened to detect which WhatsApp number is actually signed in
+  (not just "WhatsApp Web is open"), via a companion browser extension —
+  see `extension/README.md`. Still no message content, ever.
 
 ## Notes for HR / director sign-off
 

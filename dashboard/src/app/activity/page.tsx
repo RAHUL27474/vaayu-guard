@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/auth-guard";
 import { createClient } from "@/lib/supabase/server";
 import type { Device } from "@/lib/types/database";
-import { formatDuration, formatDate } from "@/lib/format";
+import { formatDuration, formatDate, formatWhatsAppIdentity } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +67,9 @@ export default async function ActivityPage() {
                 (openSessions ?? []).map((s) => (
                   <tr key={s.id} className="border-b border-slate-100 last:border-0">
                     <td className="p-3 font-medium">{deviceName(s.device_id)}</td>
-                    <td className="p-3">{s.detected_identity}</td>
+                    <td className="p-3">
+                      {s.channel === "whatsapp" ? formatWhatsAppIdentity(s.detected_identity) : s.detected_identity}
+                    </td>
                     <td className="p-3 capitalize">{s.channel}</td>
                     <td className="p-3 text-slate-500">
                       {new Date(s.started_at).toLocaleString()}
@@ -117,7 +119,9 @@ export default async function ActivityPage() {
                     >
                       <td className="p-3 text-slate-500">{formatDate(row.activity_date)}</td>
                       <td className="p-3 font-medium">{deviceName(row.device_id)}</td>
-                      <td className="p-3">{row.detected_identity}</td>
+                      <td className="p-3">
+                        {row.channel === "whatsapp" ? formatWhatsAppIdentity(row.detected_identity) : row.detected_identity}
+                      </td>
                       <td className="p-3 capitalize">{row.channel}</td>
                       <td className="p-3">
                         {row.session_count} time{row.session_count === 1 ? "" : "s"}

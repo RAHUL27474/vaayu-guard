@@ -3,8 +3,8 @@ using System.Text.Json.Serialization;
 
 namespace VaayuMonitor.Agent;
 
-public record EnrollResult(string DeviceId, string DeviceToken, string AssignedEmail);
-public record CheckinResult(bool Ok, int Accepted, string AssignedEmail, string Status, IReadOnlyList<string> CloseRequests);
+public record EnrollResult(string DeviceId, string DeviceToken, string AssignedEmail, string? AssignedPhone);
+public record CheckinResult(bool Ok, int Accepted, string AssignedEmail, string? AssignedPhone, string Status, IReadOnlyList<string> CloseRequests);
 
 /// <summary>Talks to the dashboard's /api/agent/* route handlers over HTTPS.</summary>
 public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
@@ -30,7 +30,7 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
             var body = await res.Content.ReadFromJsonAsync<EnrollResponseDto>(cancellationToken: ct);
             return body is null
                 ? null
-                : new EnrollResult(body.DeviceId, body.DeviceToken, body.AssignedEmail);
+                : new EnrollResult(body.DeviceId, body.DeviceToken, body.AssignedEmail, body.AssignedPhone);
         }
         catch (Exception ex)
         {
@@ -82,7 +82,7 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
             var body = await res.Content.ReadFromJsonAsync<CheckinResponseDto>(cancellationToken: ct);
             return body is null
                 ? null
-                : new CheckinResult(body.Ok, body.Accepted, body.AssignedEmail, body.Status, body.CloseRequests ?? []);
+                : new CheckinResult(body.Ok, body.Accepted, body.AssignedEmail, body.AssignedPhone, body.Status, body.CloseRequests ?? []);
         }
         catch (Exception ex)
         {
@@ -111,12 +111,14 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
     private record EnrollResponseDto(
         [property: JsonPropertyName("deviceId")] string DeviceId,
         [property: JsonPropertyName("deviceToken")] string DeviceToken,
-        [property: JsonPropertyName("assignedEmail")] string AssignedEmail);
+        [property: JsonPropertyName("assignedEmail")] string AssignedEmail,
+        [property: JsonPropertyName("assignedPhone")] string? AssignedPhone);
 
     private record CheckinResponseDto(
         [property: JsonPropertyName("ok")] bool Ok,
         [property: JsonPropertyName("accepted")] int Accepted,
         [property: JsonPropertyName("assignedEmail")] string AssignedEmail,
+        [property: JsonPropertyName("assignedPhone")] string? AssignedPhone,
         [property: JsonPropertyName("status")] string Status,
         [property: JsonPropertyName("closeRequests")] List<string>? CloseRequests);
 }

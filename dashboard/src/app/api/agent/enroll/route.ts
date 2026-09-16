@@ -34,7 +34,10 @@ export async function POST(request: Request) {
   }
 
   const supabase = createAdminClient();
-  const query = supabase.from("devices").select("id, status, assigned_email").eq("status", "pending");
+  const query = supabase
+    .from("devices")
+    .select("id, status, assigned_email, assigned_phone")
+    .eq("status", "pending");
 
   const { data: device, error } = token
     ? await query.eq("enrollment_token_hash", hashToken(token)).single()
@@ -71,5 +74,6 @@ export async function POST(request: Request) {
     deviceId: device.id,
     deviceToken,
     assignedEmail: device.assigned_email,
+    assignedPhone: device.assigned_phone,
   });
 }

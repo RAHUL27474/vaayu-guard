@@ -15,17 +15,18 @@ public static class ConsentNotice
     // whenever the scope of what's monitored changes. A version bump makes
     // already-installed agents re-show the notice even though the employee
     // acknowledged an earlier version.
-    public const int CurrentNoticeVersion = 2;
+    public const int CurrentNoticeVersion = 3;
 
     private const string NoticeText =
         "VaayuTrip Monitoring Notice\n\n" +
         "This is a company-owned computer. VaayuTrip monitors this PC to check " +
         "that the company email account assigned to this desktop is the one in " +
-        "use, to detect when WhatsApp Web is open, and to log which apps and " +
-        "browser tabs (by title only) are open during working hours.\n\n" +
+        "use, to detect when WhatsApp Web is open and which WhatsApp number is " +
+        "signed in (via a companion browser extension), and to log which apps " +
+        "and browser tabs (by title only) are open during working hours.\n\n" +
         "This tool does not record keystrokes, screenshots, or the content of " +
         "your messages, emails, or documents — only window/tab titles and " +
-        "which account is signed in.\n\n" +
+        "which account/number is signed in.\n\n" +
         "By clicking OK, you acknowledge this notice.";
 
     private record AckRecord(string AcknowledgedAt, string WindowsUser, int NoticeVersion);

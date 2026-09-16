@@ -42,6 +42,7 @@ builder.Services.AddHttpClient<SelfUpdater>(client =>
 });
 
 builder.Services.AddHostedService<Worker>();
+builder.Services.AddHostedService<WhatsAppIdentityServer>();
 
 // Leftover from a previous self-update's rename-out-of-the-way step — safe
 // to clean up now regardless of install/worker mode below.

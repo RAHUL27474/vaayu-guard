@@ -147,6 +147,7 @@ export async function POST(request: Request) {
     ok: true,
     accepted: events.length,
     assignedEmail: device.assigned_email,
+    assignedPhone: device.assigned_phone,
     status: device.status,
     closeRequests,
   });

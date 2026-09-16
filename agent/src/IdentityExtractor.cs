@@ -17,7 +17,10 @@ public record ExtractedEvent(
 /// <summary>
 /// Classifies a scanned window title: extracts an email address and flags
 /// it as a mismatch if it isn't the PC's assigned company email, or
-/// recognizes a WhatsApp Web window as a coarse (no-phone-number) signal.
+/// recognizes a WhatsApp Web window. The number actually signed in there
+/// (if the browser extension has reported one recently) is compared
+/// against the PC's assigned number the same way email is; otherwise this
+/// falls back to a coarse "WhatsApp Web is open" observation only.
 /// </summary>
 public static class IdentityExtractor
 {
@@ -25,7 +28,7 @@ public static class IdentityExtractor
         @"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
         RegexOptions.Compiled);
 
-    public static ExtractedEvent? Classify(ScannedWindow window, string assignedEmail)
+    public static ExtractedEvent? Classify(ScannedWindow window, string assignedEmail, string? assignedPhone, string? reportedWaNumber)
     {
         var emailMatch = EmailPattern.Match(window.WindowTitle);
         if (emailMatch.Success)
@@ -42,12 +45,28 @@ public static class IdentityExtractor
                 window.IsForeground);
         }
 
-        // No phone number is exposed in WhatsApp Web's window/tab title, so
-        // this is deliberately a coarse, non-mismatch observation only —
-        // see docs in the project plan for why exact number detection was
-        // scoped out of phase 1.
         if (window.WindowTitle.Contains("WhatsApp", StringComparison.OrdinalIgnoreCase))
         {
+            // The window/tab title never exposes a phone number — that
+            // comes separately from the browser extension (see
+            // WhatsAppIdentityServer), which reads it out of WhatsApp
+            // Web's own page state. Without it, fall back to the old
+            // coarse "WhatsApp Web is open" signal.
+            if (!string.IsNullOrEmpty(reportedWaNumber))
+            {
+                var normalizedAssigned = NormalizePhone(assignedPhone);
+                var isMismatch = normalizedAssigned is null ||
+                    !string.Equals(reportedWaNumber, normalizedAssigned, StringComparison.Ordinal);
+                return new ExtractedEvent(
+                    window.ProcessName,
+                    window.WindowTitle,
+                    ActivityChannel.WhatsApp,
+                    reportedWaNumber,
+                    isMismatch,
+                    EventConfidence.High,
+                    window.IsForeground);
+            }
+
             return new ExtractedEvent(
                 window.ProcessName,
                 window.WindowTitle,
@@ -60,4 +79,7 @@ public static class IdentityExtractor
 
         return null;
     }
+
+    private static string? NormalizePhone(string? raw) =>
+        string.IsNullOrWhiteSpace(raw) ? null : new string(raw.Where(char.IsDigit).ToArray());
 }

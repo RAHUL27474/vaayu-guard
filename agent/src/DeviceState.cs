@@ -7,6 +7,7 @@ public class DeviceState
     public string DeviceId { get; set; } = "";
     public string DeviceToken { get; set; } = "";
     public string AssignedEmail { get; set; } = "";
+    public string? AssignedPhone { get; set; }
 
     /// <summary>
     /// The highest notice version successfully reported to the backend.

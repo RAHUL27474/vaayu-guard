@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Alert, Device } from "@/lib/types/database";
 import { setAlertStatus, requestCloseWindow } from "@/lib/actions/alert-actions";
+import { formatWhatsAppIdentity } from "@/lib/format";
 
 type DeviceLite = Pick<Device, "id" | "device_label" | "hostname" | "assigned_to_user">;
 
@@ -83,7 +84,9 @@ export function AlertsList({
                     ) : null}
                   </td>
                   <td className="p-3 capitalize">{a.channel}</td>
-                  <td className="p-3">{a.detected_identity}</td>
+                  <td className="p-3">
+                    {a.channel === "whatsapp" ? formatWhatsAppIdentity(a.detected_identity) : a.detected_identity}
+                  </td>
                   <td className="p-3 text-slate-500">
                     {new Date(a.last_seen_at).toLocaleString()}
                   </td>

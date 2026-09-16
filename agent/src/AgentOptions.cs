@@ -16,6 +16,12 @@ public class AgentOptions
     public int UpdateCheckIntervalMinutes { get; set; } = 240;
 
     /// <summary>
+    /// Loopback-only port the VaayuGuard browser extension posts the
+    /// signed-in WhatsApp account's own number to. See WhatsAppIdentityServer.
+    /// </summary>
+    public int WhatsAppIdentityPort { get; set; } = 8737;
+
+    /// <summary>
     /// Where the installer copies itself to and registers the Scheduled
     /// Task against. If the running exe is already at this path, it's
     /// treated as "already installed" and runs as the background worker

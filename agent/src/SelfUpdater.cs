@@ -31,7 +31,7 @@ public class SelfUpdater(HttpClient http, ILogger<SelfUpdater> logger)
 {
     // Bump alongside agent/install/stage-update.ps1's manifest version on
     // every release that should trigger already-installed agents to update.
-    public const int CurrentAgentVersion = 15;
+    public const int CurrentAgentVersion = 16;
 
     /// <summary>
     /// Deletes a leftover renamed-old-exe from an update applied on a

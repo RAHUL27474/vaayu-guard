@@ -7,7 +7,7 @@ import { AlertsList } from "@/components/alerts-list";
 import { TimelineTable } from "@/components/timeline-table";
 import { DateNav } from "@/components/date-nav";
 import { todayIST, istDayBoundsUtc, shiftDate } from "@/lib/date-range";
-import { formatDuration, formatDate } from "@/lib/format";
+import { formatDuration, formatDate, formatWhatsAppIdentity } from "@/lib/format";
 import type { WindowActivity } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
@@ -164,7 +164,9 @@ export default async function DeviceDetailPage({
                       className="border-b border-slate-100 last:border-0"
                     >
                       <td className="p-3 text-slate-500">{formatDate(row.activity_date)}</td>
-                      <td className="p-3">{row.detected_identity}</td>
+                      <td className="p-3">
+                        {row.channel === "whatsapp" ? formatWhatsAppIdentity(row.detected_identity) : row.detected_identity}
+                      </td>
                       <td className="p-3 capitalize">{row.channel}</td>
                       <td className="p-3">
                         {row.session_count} time{row.session_count === 1 ? "" : "s"}
