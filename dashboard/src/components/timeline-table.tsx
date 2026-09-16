@@ -4,7 +4,13 @@ import { useMemo, useState } from "react";
 import type { WindowActivity } from "@/lib/types/database";
 import { groupIntoBlocks, formatBlockDuration } from "@/lib/activity-blocks";
 
-export function TimelineTable({ rows }: { rows: WindowActivity[] }) {
+export function TimelineTable({
+  rows,
+  emptyMessage = "No activity recorded yet for this device.",
+}: {
+  rows: WindowActivity[];
+  emptyMessage?: string;
+}) {
   const [query, setQuery] = useState("");
 
   // Newest first for reading, but blocks (and their durations) are
@@ -45,9 +51,7 @@ export function TimelineTable({ rows }: { rows: WindowActivity[] }) {
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={5} className="p-6 text-center text-slate-500">
-                  {rows.length === 0
-                    ? "No activity recorded yet for this device."
-                    : `No activity matches "${query}".`}
+                  {rows.length === 0 ? emptyMessage : `No activity matches "${query}".`}
                 </td>
               </tr>
             ) : (

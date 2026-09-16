@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { AlertsList } from "@/components/alerts-list";
 import { TimelineTable } from "@/components/timeline-table";
+import { DateNav } from "@/components/date-nav";
+import { todayIST, istDayBoundsUtc, shiftDate } from "@/lib/date-range";
 import { formatDuration, formatDate } from "@/lib/format";
 import type { WindowActivity } from "@/lib/types/database";
 
@@ -14,15 +16,24 @@ const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 
 export default async function DeviceDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ date?: string }>;
 }) {
   const session = await requireAdmin();
   const { id } = await params;
+  const { date: dateParam } = await searchParams;
   const supabase = await createClient();
 
   const { data: device } = await supabase.from("devices").select("*").eq("id", id).single();
   if (!device) notFound();
+
+  // Scoped to one day instead of a flat row limit — with enough activity,
+  // a fixed limit(N) silently drops older entries as new ones come in
+  // (confirmed live: this looked like Timeline entries "disappearing").
+  const date = dateParam ?? todayIST();
+  const { startUtc, endUtc } = istDayBoundsUtc(date);
 
   const [{ data: alerts }, { data: daily }, { data: activityRows }, { data: openAlerts }] =
     await Promise.all([
@@ -37,8 +48,9 @@ export default async function DeviceDetailPage({
         .from("window_activity")
         .select("*")
         .eq("device_id", id)
-        .order("captured_at", { ascending: false })
-        .limit(500),
+        .gte("captured_at", startUtc)
+        .lt("captured_at", endUtc)
+        .order("captured_at", { ascending: false }),
       supabase.from("alerts").select("id").eq("device_id", id).eq("status", "open"),
     ]);
 
@@ -171,14 +183,20 @@ export default async function DeviceDetailPage({
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 p-4">
-          <h2 className="font-medium text-slate-800">Timeline</h2>
-          <p className="text-xs text-slate-400">
-            Every app/tab window title seen on this PC — titles only, never content.
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
+          <div>
+            <h2 className="font-medium text-slate-800">Timeline</h2>
+            <p className="text-xs text-slate-400">
+              Every app/tab window title seen on this PC — titles only, never content.
+            </p>
+          </div>
+          <DateNav date={date} prevDate={shiftDate(date, -1)} nextDate={shiftDate(date, 1)} />
         </div>
         <div className="p-4">
-          <TimelineTable rows={(activityRows ?? []) as WindowActivity[]} />
+          <TimelineTable
+            rows={(activityRows ?? []) as WindowActivity[]}
+            emptyMessage={`No activity recorded for this device on ${date}.`}
+          />
         </div>
       </div>
     </div>

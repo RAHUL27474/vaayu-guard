@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/auth-guard";
 import { createClient } from "@/lib/supabase/server";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { TimelineTable } from "@/components/timeline-table";
+import { DateNav } from "@/components/date-nav";
+import { todayIST, istDayBoundsUtc, shiftDate } from "@/lib/date-range";
 import type { WindowActivity } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
@@ -10,10 +12,10 @@ export const dynamic = "force-dynamic";
 export default async function TimelinePage({
   searchParams,
 }: {
-  searchParams: Promise<{ device?: string }>;
+  searchParams: Promise<{ device?: string; date?: string }>;
 }) {
   await requireAdmin();
-  const { device: deviceId } = await searchParams;
+  const { device: deviceId, date: dateParam } = await searchParams;
   const supabase = await createClient();
 
   const { data: devices } = await supabase
@@ -23,17 +25,25 @@ export default async function TimelinePage({
 
   const activeDeviceId = deviceId ?? devices?.[0]?.id;
 
+  // Scoped to one day instead of a flat row limit — with enough activity,
+  // a fixed limit(N) silently drops older entries as new ones come in
+  // (confirmed live: this looked like Timeline entries "disappearing").
+  const date = dateParam ?? todayIST();
+  const { startUtc, endUtc } = istDayBoundsUtc(date);
+
   const [{ data: rows }, { data: recentAcrossFleet }] = await Promise.all([
     activeDeviceId
       ? supabase
           .from("window_activity")
           .select("*")
           .eq("device_id", activeDeviceId)
+          .gte("captured_at", startUtc)
+          .lt("captured_at", endUtc)
           .order("captured_at", { ascending: false })
-          .limit(300)
       : Promise.resolve({ data: [] as WindowActivity[] }),
     // Enough rows across all devices that, after taking the first per
-    // device below, every enrolled PC likely has a recent entry.
+    // device below, every enrolled PC likely has a recent entry. This one
+    // is deliberately NOT date-scoped — it's "what's open right now", not history.
     supabase
       .from("window_activity")
       .select("*")
@@ -106,26 +116,39 @@ export default async function TimelinePage({
         </div>
       </div>
 
-      <div>
-        <p className="mb-2 text-sm font-medium text-slate-700">Full history for one PC:</p>
-        <div className="flex flex-wrap gap-2">
-          {(devices ?? []).map((d) => (
-            <Link
-              key={d.id}
-              href={`/timeline?device=${d.id}`}
-              className={`rounded-full border px-3 py-1 text-sm ${
-                d.id === activeDeviceId
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-300 text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              {d.device_label ?? d.hostname ?? d.id.slice(0, 8)}
-            </Link>
-          ))}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="mb-2 text-sm font-medium text-slate-700">History for one PC, one day at a time:</p>
+          <div className="flex flex-wrap gap-2">
+            {(devices ?? []).map((d) => (
+              <Link
+                key={d.id}
+                href={`/timeline?device=${d.id}&date=${date}`}
+                className={`rounded-full border px-3 py-1 text-sm ${
+                  d.id === activeDeviceId
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-300 text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {d.device_label ?? d.hostname ?? d.id.slice(0, 8)}
+              </Link>
+            ))}
+          </div>
         </div>
+        {activeDeviceId ? (
+          <DateNav
+            date={date}
+            prevDate={shiftDate(date, -1)}
+            nextDate={shiftDate(date, 1)}
+            extraParams={{ device: activeDeviceId }}
+          />
+        ) : null}
       </div>
 
-      <TimelineTable rows={rows ?? []} />
+      <TimelineTable
+        rows={rows ?? []}
+        emptyMessage={`No activity recorded for this device on ${date}.`}
+      />
     </div>
   );
 }
