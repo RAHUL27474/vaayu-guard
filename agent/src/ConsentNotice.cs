@@ -31,6 +31,10 @@ public static class ConsentNotice
 
     private record AckRecord(string AcknowledgedAt, string WindowsUser, int NoticeVersion);
 
+    // Set while the notice thread is up, so a tick that runs again before
+    // it's dismissed doesn't stack a fresh popup on top of it every 45s.
+    private static volatile bool _noticeShowing;
+
     private static string AckPath(AgentOptions options) =>
         Path.Combine(options.ResolveDataDirectory(), "consent_ack.json");
 
@@ -50,35 +54,47 @@ public static class ConsentNotice
     }
 
     /// <summary>
-    /// If not already acknowledged (for the current notice version), blocks
-    /// (on a dedicated STA thread, since the host's main thread apartment
-    /// state isn't controllable from a top-level-statement Program.cs)
-    /// showing the notice. Returns true if the user clicked OK just now.
+    /// If not already acknowledged (for the current notice version), shows
+    /// the notice on a dedicated STA thread (the host's main thread
+    /// apartment state isn't controllable from a top-level-statement
+    /// Program.cs) — WITHOUT blocking the caller. Confirmed live: this used
+    /// to Join() the thread, which froze the entire Worker tick loop
+    /// (scanning AND check-ins) until someone noticed and dismissed the
+    /// popup — directly contradicting "scanning still proceeds regardless"
+    /// above. The whole point of calling this every tick until acknowledged
+    /// is that everything else keeps working meanwhile.
     /// </summary>
-    public static bool EnsureAcknowledged(AgentOptions options)
+    public static void EnsureAcknowledged(AgentOptions options)
     {
-        if (IsAcknowledged(options)) return false;
+        if (IsAcknowledged(options)) return;
+        if (_noticeShowing) return;
 
-        var clickedOk = false;
+        _noticeShowing = true;
         var thread = new Thread(() =>
         {
-            var result = System.Windows.Forms.MessageBox.Show(
-                NoticeText,
-                "VaayuTrip Monitoring Notice",
-                System.Windows.Forms.MessageBoxButtons.OK,
-                System.Windows.Forms.MessageBoxIcon.Information);
-            clickedOk = result == System.Windows.Forms.DialogResult.OK;
-        });
+            try
+            {
+                var result = System.Windows.Forms.MessageBox.Show(
+                    NoticeText,
+                    "VaayuTrip Monitoring Notice",
+                    System.Windows.Forms.MessageBoxButtons.OK,
+                    System.Windows.Forms.MessageBoxIcon.Information);
+
+                if (result == System.Windows.Forms.DialogResult.OK)
+                {
+                    var ack = new AckRecord(DateTimeOffset.UtcNow.ToString("o"), Environment.UserName, CurrentNoticeVersion);
+                    File.WriteAllText(AckPath(options), JsonSerializer.Serialize(ack));
+                }
+            }
+            finally
+            {
+                _noticeShowing = false;
+            }
+        })
+        {
+            IsBackground = true,
+        };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        thread.Join();
-
-        if (clickedOk)
-        {
-            var ack = new AckRecord(DateTimeOffset.UtcNow.ToString("o"), Environment.UserName, CurrentNoticeVersion);
-            File.WriteAllText(AckPath(options), JsonSerializer.Serialize(ack));
-        }
-
-        return clickedOk;
     }
 }
