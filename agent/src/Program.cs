@@ -6,6 +6,15 @@ var agentOptions = new AgentOptions();
 builder.Configuration.GetSection(AgentOptions.SectionName).Bind(agentOptions);
 builder.Services.AddSingleton(agentOptions);
 
+// WinExe has no console for the default console logger to write to, so
+// without this there is no way to see what a running agent is doing —
+// confirmed the hard way while debugging why a freshly-installed agent
+// made zero requests to the backend. Truncate first so this doesn't grow
+// forever across restarts.
+var logPath = Path.Combine(agentOptions.ResolveDataDirectory(), "agent.log");
+try { if (new FileInfo(logPath).Length > 2_000_000) File.Delete(logPath); } catch { }
+builder.Logging.AddProvider(new FileLoggerProvider(logPath));
+
 // Launched as VaayuGuardWatchdog.exe (a separately-named copy of this same
 // exe) by its own Scheduled Task — just polls for the main agent and
 // relaunches it directly if missing, rather than building/running the
