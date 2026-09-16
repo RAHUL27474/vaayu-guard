@@ -126,11 +126,25 @@ public static class Installer
             // copy of the exe we just installed, not the original launcher.
             CopyOverPossiblyLockedTarget(targetExe, watchdogExe);
 
+            // Confirmed live: a stale appsettings.json left over in installDir
+            // from a much earlier install (pointing at a long-dead LAN
+            // address) silently overrode every subsequent build's compiled-in
+            // BackendBaseUrl default, since Host.CreateApplicationBuilder
+            // loads appsettings.json from the content root regardless of
+            // which exe version put it there. The single-exe install has no
+            // appsettings.json of its own — the compiled-in default is the
+            // whole point — so when the fresh download doesn't ship one,
+            // remove any old one instead of silently leaving it in charge.
             var currentAppsettings = Path.Combine(Path.GetDirectoryName(currentExe)!, "appsettings.json");
+            var installedAppsettings = Path.Combine(installDir, "appsettings.json");
             if (File.Exists(currentAppsettings))
             {
-                try { File.Copy(currentAppsettings, Path.Combine(installDir, "appsettings.json"), overwrite: true); }
+                try { File.Copy(currentAppsettings, installedAppsettings, overwrite: true); }
                 catch { /* optional — baked-in defaults cover this */ }
+            }
+            else
+            {
+                try { File.Delete(installedAppsettings); } catch { /* fine if it wasn't there */ }
             }
 
             var taskWarning = "";
