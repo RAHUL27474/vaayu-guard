@@ -14,28 +14,23 @@
     try {
       if (typeof window.require !== "function") return null;
 
-      // Try a few known-good module names across recent WhatsApp Web
-      // versions; the first one that resolves to something usable wins.
-      const candidates = ["WAWebUserPrefsMeUser", "WAWebMeUser", "UserPrefsMeUser"];
-      for (const name of candidates) {
-        let mod;
-        try {
-          mod = window.require(name);
-        } catch {
-          continue;
-        }
-        if (!mod) continue;
+      const mod = window.require("WAWebUserPrefsMeUser");
+      if (!mod) return null;
 
-        const me =
-          typeof mod.getMaybeMeUser === "function" ? mod.getMaybeMeUser() :
-          typeof mod.getMeUser === "function" ? mod.getMeUser() :
-          mod.default ?? mod;
+      // Confirmed live (2026-09-16): getMaybeMePnUser() returns
+      // { user: "919118399683", server: "c.us", _serialized: "919118399683@c.us" }.
+      // Falling back to a couple of older/alternate method names in case a
+      // future WhatsApp Web version renames this one too.
+      const me =
+        typeof mod.getMaybeMePnUser === "function" ? mod.getMaybeMePnUser() :
+        typeof mod.getMaybeMeUser === "function" ? mod.getMaybeMeUser() :
+        typeof mod.getMeUser === "function" ? mod.getMeUser() :
+        null;
 
-        if (!me) continue;
-        if (typeof me === "string" && me.includes("@")) return me.split("@")[0];
-        if (typeof me?.user === "string") return me.user;
-        if (typeof me?._serialized === "string") return me._serialized.split("@")[0];
-      }
+      if (!me) return null;
+      if (typeof me === "string" && me.includes("@")) return me.split("@")[0];
+      if (typeof me.user === "string") return me.user;
+      if (typeof me._serialized === "string") return me._serialized.split("@")[0];
     } catch {
       // WhatsApp Web internals changed shape — report nothing this cycle.
     }
