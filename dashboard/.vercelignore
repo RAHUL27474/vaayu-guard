@@ -1,0 +1,4 @@
+# The published agent exe is too large for a Vercel deployment upload
+# (100MB limit) and doesn't belong there anyway — it's hosted as a GitHub
+# Release asset instead; public/agent/manifest.json points at that URL.
+public/agent/*.exe

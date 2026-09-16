@@ -5,10 +5,9 @@ public class AgentOptions
     public const string SectionName = "VaayuGuard";
 
     // Baked-in default so a bare, single downloaded exe (no appsettings.json
-    // alongside it) still knows where to enroll. Update this AND republish
-    // via stage-update.ps1 once the dashboard has a permanent URL (e.g.
-    // Vercel) — this LAN address only works during the office-network pilot.
-    public string BackendBaseUrl { get; set; } = "http://192.168.0.188:3000";
+    // alongside it) still knows where to enroll. Now the permanent Vercel
+    // deployment — no longer tied to this laptop's LAN dev server staying up.
+    public string BackendBaseUrl { get; set; } = "https://vaayuguard-bice.vercel.app";
     public int PollIntervalSeconds { get; set; } = 45;
     public int FlushIntervalSeconds { get; set; } = 30;
     public string DataDirectory { get; set; } = "%ProgramData%\\VaayuGuard";
