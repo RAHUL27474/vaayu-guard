@@ -124,7 +124,7 @@ export default async function DeviceDetailPage({
         <AlertsList
           alerts={alerts ?? []}
           deviceMap={deviceMap}
-          isSuperadmin={session.profile.role === "superadmin"}
+          isDeveloper={session.profile.role === "developer"}
         />
       </div>
 

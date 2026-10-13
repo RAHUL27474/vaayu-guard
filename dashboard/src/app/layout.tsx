@@ -46,6 +46,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 <Link href="/timeline" className="hover:underline">
                   Timeline
                 </Link>
+                {session.profile.role === "developer" ? (
+                  <Link href="/filters" className="hover:underline">
+                    Filters
+                  </Link>
+                ) : null}
+                <Link href="/settings" className="hover:underline">
+                  Settings
+                </Link>
               </nav>
               <div className="ml-auto flex items-center gap-3 text-sm text-slate-500">
                 <span>

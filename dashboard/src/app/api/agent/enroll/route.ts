@@ -9,9 +9,9 @@ import { generateToken, hashToken } from "@/lib/device-token";
  *    dashboard; the old install.ps1 flow pastes it in explicitly.
  * 2. By email — the single-file installer just asks the CRE for their
  *    assigned company email and matches it against a *pending* device the
- *    superadmin already created. Simpler for the CRE, but the email is a
+ *    developer already created. Simpler for the CRE, but the email is a
  *    weaker secret than a random token: it works because only a device the
- *    superadmin explicitly created and left `pending` can ever match, and
+ *    developer explicitly created and left `pending` can ever match, and
  *    a real install (physical/organizational access to the company PC) is
  *    already required to run the installer in the first place. Acceptable
  *    for an ~11-PC internal pilot; revisit if that assumption changes.

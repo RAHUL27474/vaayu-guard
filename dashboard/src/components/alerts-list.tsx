@@ -24,11 +24,13 @@ function StatusBadge({ status }: { status: Alert["status"] }) {
 export function AlertsList({
   alerts,
   deviceMap,
-  isSuperadmin = false,
+  isDeveloper = false,
+  canCloseWindow = isDeveloper,
 }: {
   alerts: Alert[];
   deviceMap: Record<string, DeviceLite>;
-  isSuperadmin?: boolean;
+  isDeveloper?: boolean;
+  canCloseWindow?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -97,7 +99,7 @@ export function AlertsList({
                   <td className="p-3 text-right">
                     {a.status === "open" ? (
                       <div className="flex flex-wrap justify-end items-center gap-3">
-                        {isSuperadmin ? (
+                        {canCloseWindow ? (
                           a.close_requested_at || closeRequested.has(a.id) ? (
                             <span className="text-xs text-slate-400">Close requested…</span>
                           ) : (

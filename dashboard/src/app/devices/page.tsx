@@ -32,7 +32,9 @@ export default async function DevicesPage() {
       </div>
       <DevicesList
         devices={devices ?? []}
-        isSuperadmin={session.profile.role === "superadmin"}
+        isDeveloper={session.profile.role === "developer"}
+        canAddDevice
+        canDisableDevice
         openAlertCounts={openAlertCounts}
       />
     </div>

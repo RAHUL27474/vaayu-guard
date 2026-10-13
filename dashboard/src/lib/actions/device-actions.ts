@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { requireSuperadmin } from "@/lib/auth-guard";
+import { requireAdmin } from "@/lib/auth-guard";
 import { generateToken, hashToken } from "@/lib/device-token";
 
 export async function createDevice(input: {
@@ -10,7 +10,7 @@ export async function createDevice(input: {
   assignedPhone?: string;
   assignedToUser?: string;
 }): Promise<{ ok: boolean; error?: string; token?: string }> {
-  const session = await requireSuperadmin();
+  const session = await requireAdmin();
   const supabase = await createClient();
 
   const token = generateToken();
@@ -31,7 +31,7 @@ export async function createDevice(input: {
 export async function disableDevice(
   deviceId: string
 ): Promise<{ ok: boolean; error?: string }> {
-  await requireSuperadmin();
+  await requireAdmin();
   const supabase = await createClient();
   const { error } = await supabase
     .from("devices")

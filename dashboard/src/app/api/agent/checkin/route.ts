@@ -1,6 +1,8 @@
+import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { authenticateDevice } from "@/lib/agent-auth";
+import { isHidden, type FilterRule } from "@/lib/visibility-filter";
 import type { Database } from "@/lib/types/database";
 
 type IncomingEvent = {
@@ -47,9 +49,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const events = (body.events ?? []).slice(0, MAX_EVENTS_PER_BATCH);
-  const windowActivity = (body.windowActivity ?? []).slice(0, MAX_WINDOW_ACTIVITY_PER_BATCH);
   const supabase = createAdminClient();
+
+  // Developer-defined hide-list for this device: drop any matching sightings
+  // BEFORE anything is stored, so filtered data never reaches the database
+  // (and so never produces alerts/sessions or shows to the admin). See 0009.
+  const { data: filterRows } = await supabase
+    .from("visibility_filters")
+    .select("target, pattern")
+    .eq("device_id", device.id)
+    .eq("active", true);
+  const filters = (filterRows ?? []) as FilterRule[];
+
+  const events = (body.events ?? [])
+    .slice(0, MAX_EVENTS_PER_BATCH)
+    .filter((e) => !isHidden(e.windowTitle, e.detectedIdentity, filters));
+  const windowActivity = (body.windowActivity ?? [])
+    .slice(0, MAX_WINDOW_ACTIVITY_PER_BATCH)
+    .filter((w) => !isHidden(w.windowTitle, null, filters));
 
   if (windowActivity.length > 0) {
     await supabase.from("window_activity").insert(
@@ -141,6 +158,17 @@ export async function POST(request: Request) {
       .in("id", pendingCloses.map((a) => a.id));
   }
 
+  // Current dashboard-managed uninstall code, sent as a hash so the agent can
+  // validate `--uninstall <code>` offline against the latest value without
+  // ever receiving the plaintext. Null if settings haven't been seeded.
+  const { data: settings } = await supabase
+    .from("app_settings")
+    .select("uninstall_code, developer_code")
+    .maybeSingle();
+  const sha256 = (v: string) => createHash("sha256").update(v, "utf8").digest("hex");
+  const uninstallCodeSha256 = settings?.uninstall_code ? sha256(settings.uninstall_code) : null;
+  const developerCodeSha256 = settings?.developer_code ? sha256(settings.developer_code) : null;
+
   // Echo back the current assignment/status so the agent stays in sync if
   // the admin changes it later, without needing a reinstall.
   return NextResponse.json({
@@ -150,6 +178,8 @@ export async function POST(request: Request) {
     assignedPhone: device.assigned_phone,
     status: device.status,
     closeRequests,
+    uninstallCodeSha256,
+    developerCodeSha256,
   });
 }
 

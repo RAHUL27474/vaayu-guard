@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin, requireSuperadmin } from "@/lib/auth-guard";
+import { requireAdmin } from "@/lib/auth-guard";
 import type { Alert } from "@/lib/types/database";
 
 export async function setAlertStatus(
@@ -29,14 +29,14 @@ export async function setAlertStatus(
  * check-in (within its poll interval) and consumed once — reopening the
  * same identity later needs another click.
  *
- * Superadmin-only by design — this is an active intervention on someone's
- * PC, not a read/triage action, so it's deliberately not handed to the
- * admin (director) role alongside acknowledge/dismiss.
+ * Open to the admin (director) role as well as developer: the director
+ * asked to be able to close a flagged window directly, not only triage it.
+ * Still a one-shot graceful close, never a forced kill or persistent block.
  */
 export async function requestCloseWindow(
   alertId: number
 ): Promise<{ ok: boolean; error?: string }> {
-  const session = await requireSuperadmin();
+  const session = await requireAdmin();
   const supabase = await createClient();
   const { error } = await supabase
     .from("alerts")
