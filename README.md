@@ -15,7 +15,7 @@ employees on first run.
   Windows exe. Polls open browser windows, extracts email identity, queues
   events locally, syncs to the dashboard backend.
 - `dashboard/` — Next.js (App Router) + Supabase. Two roles: `admin`
-  (director, view-only) and `superadmin` (full control, manages devices).
+  (director, view-only) and `developer` (full control, manages devices).
 - `supabase/migrations/` — schema + RLS for a **separate** Supabase project
   (not the vaayutrip-crm production project).
 - `docs/` — consent notice text and other non-code reference docs.
