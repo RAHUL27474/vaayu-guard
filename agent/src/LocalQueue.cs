@@ -162,6 +162,21 @@ public class LocalQueue
         tx.Commit();
     }
 
+    /// <summary>
+    /// Wipes ALL queued rows (synced or not). Called right after a fresh
+    /// enrollment: anything queued before this PC became the current device
+    /// belongs to a previous install/device, and backfilling it under the new
+    /// device id shows up as days-old "live" activity. Dropping it keeps the
+    /// new device's history starting from when it actually enrolled.
+    /// </summary>
+    public void ClearAll()
+    {
+        using var conn = Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM events; DELETE FROM window_activity;";
+        cmd.ExecuteNonQuery();
+    }
+
     /// <summary>Housekeeping: drop already-synced rows older than the retention window.</summary>
     public void PruneSynced(TimeSpan olderThan)
     {

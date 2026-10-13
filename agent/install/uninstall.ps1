@@ -2,6 +2,13 @@
 .SYNOPSIS
   Removes the VaayuGuard agent's Scheduled Task and installed binaries.
 
+  This is the IT/elevated fallback. The normal admin uninstall is the
+  code-gated path built into the agent itself — from an elevated cmd:
+    "C:\Program Files\VaayuGuard\VaayuGuardAgent.exe" --uninstall <code>
+  which opens the uninstall page only when the secret code is correct. This
+  script performs removal WITHOUT the code, so it is for IT use only and
+  should not be distributed to employees. See docs/UNINSTALL.md.
+
 .PARAMETER Purge
   Also deletes %ProgramData%\VaayuGuard (device enrollment, local queue,
   consent record). Omit this to allow a later reinstall to reuse the
