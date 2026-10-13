@@ -1,4 +1,4 @@
--- Lets an admin/superadmin ask the agent to close the specific mismatched
+-- Lets an admin/developer ask the agent to close the specific mismatched
 -- window it flagged (a graceful WM_CLOSE, same as clicking the X — not a
 -- forced kill, and not a persistent block; the identity can reopen it).
 
