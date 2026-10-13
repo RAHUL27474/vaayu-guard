@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace VaayuMonitor.Agent;
 
 public record EnrollResult(string DeviceId, string DeviceToken, string AssignedEmail, string? AssignedPhone);
-public record CheckinResult(bool Ok, int Accepted, string AssignedEmail, string? AssignedPhone, string Status, IReadOnlyList<string> CloseRequests);
+public record CheckinResult(bool Ok, int Accepted, string AssignedEmail, string? AssignedPhone, string Status, IReadOnlyList<string> CloseRequests, string? UninstallCodeSha256, string? DeveloperCodeSha256);
 
 /// <summary>Talks to the dashboard's /api/agent/* route handlers over HTTPS.</summary>
 public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
@@ -82,7 +82,7 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
             var body = await res.Content.ReadFromJsonAsync<CheckinResponseDto>(cancellationToken: ct);
             return body is null
                 ? null
-                : new CheckinResult(body.Ok, body.Accepted, body.AssignedEmail, body.AssignedPhone, body.Status, body.CloseRequests ?? []);
+                : new CheckinResult(body.Ok, body.Accepted, body.AssignedEmail, body.AssignedPhone, body.Status, body.CloseRequests ?? [], body.UninstallCodeSha256, body.DeveloperCodeSha256);
         }
         catch (Exception ex)
         {
@@ -120,5 +120,7 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
         [property: JsonPropertyName("assignedEmail")] string AssignedEmail,
         [property: JsonPropertyName("assignedPhone")] string? AssignedPhone,
         [property: JsonPropertyName("status")] string Status,
-        [property: JsonPropertyName("closeRequests")] List<string>? CloseRequests);
+        [property: JsonPropertyName("closeRequests")] List<string>? CloseRequests,
+        [property: JsonPropertyName("uninstallCodeSha256")] string? UninstallCodeSha256,
+        [property: JsonPropertyName("developerCodeSha256")] string? DeveloperCodeSha256);
 }

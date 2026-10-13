@@ -15,6 +15,26 @@ var logPath = Path.Combine(agentOptions.ResolveDataDirectory(), "agent.log");
 try { if (new FileInfo(logPath).Length > 2_000_000) File.Delete(logPath); } catch { }
 builder.Logging.AddProvider(new FileLoggerProvider(logPath));
 
+// Code-gated uninstall. Checked before any other mode (worker/watchdog/
+// installer) so `VaayuGuardAgent.exe --uninstall <code>` works whether run
+// from the installed copy or a freshly downloaded one. A wrong or missing
+// code never removes anything. See Uninstaller.cs.
+if (Uninstaller.IsUninstallInvocation(args))
+{
+    using var uninstallLoggerFactory = LoggerFactory.Create(b => b.AddProvider(new FileLoggerProvider(logPath)));
+    Uninstaller.Run(agentOptions, args, uninstallLoggerFactory.CreateLogger("Uninstaller"));
+    return;
+}
+
+// Local developer panel: code-gated, opens on the PC itself. Also checked
+// before worker/watchdog/installer. See DevPanel.cs.
+if (DevPanel.IsDevInvocation(args))
+{
+    using var devLoggerFactory = LoggerFactory.Create(b => b.AddProvider(new FileLoggerProvider(logPath)));
+    DevPanel.Run(agentOptions, args, devLoggerFactory.CreateLogger("DevPanel"));
+    return;
+}
+
 // Launched as VaayuGuardWatchdog.exe (a separately-named copy of this same
 // exe) by its own Scheduled Task — just polls for the main agent and
 // relaunches it directly if missing, rather than building/running the

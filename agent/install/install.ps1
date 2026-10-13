@@ -5,7 +5,7 @@
 .DESCRIPTION
   Run this AFTER the employee consent conversation has happened. Copies the
   published agent next to this script into Program Files, saves the
-  one-time enrollment token issued by a superadmin in the dashboard's
+  one-time enrollment token issued by a developer in the dashboard's
   Devices page, and registers a per-logon Scheduled Task (runs as the
   current user, not a Session-0 service — see project plan for why).
 
