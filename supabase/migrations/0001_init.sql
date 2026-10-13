@@ -1,9 +1,9 @@
 -- VaayuGuard initial schema: profiles (RBAC), devices, activity_events, alerts.
--- Two roles only: admin (director, read-mostly) and superadmin (full control).
+-- Two roles only: admin (director, read-mostly) and developer (full control).
 
 create extension if not exists pgcrypto;
 
-create type user_role as enum ('admin', 'superadmin');
+create type user_role as enum ('admin', 'developer');
 create type activity_channel as enum ('email', 'whatsapp');
 create type event_confidence as enum ('high', 'low');
 create type device_status as enum ('pending', 'active', 'disabled');
@@ -19,7 +19,7 @@ create table profiles (
 );
 
 -- `is_admin_like` returns true for either role — mirrors vaayutrip-crm's
--- isAdminLike() rule that superadmin is always a superset of admin.
+-- isAdminLike() rule that developer is always a superset of admin.
 create or replace function is_admin_like(uid uuid)
 returns boolean
 language sql
@@ -28,11 +28,11 @@ security definer
 set search_path = public
 as $$
   select exists (
-    select 1 from profiles where id = uid and role in ('admin', 'superadmin')
+    select 1 from profiles where id = uid and role in ('admin', 'developer')
   );
 $$;
 
-create or replace function is_superadmin(uid uuid)
+create or replace function is_developer(uid uuid)
 returns boolean
 language sql
 stable
@@ -40,7 +40,7 @@ security definer
 set search_path = public
 as $$
   select exists (
-    select 1 from profiles where id = uid and role = 'superadmin'
+    select 1 from profiles where id = uid and role = 'developer'
   );
 $$;
 
@@ -116,12 +116,12 @@ create policy profiles_select_self on profiles
 
 create policy devices_select_admin_like on devices
   for select using (is_admin_like(auth.uid()));
-create policy devices_write_superadmin on devices
-  for insert with check (is_superadmin(auth.uid()));
-create policy devices_update_superadmin on devices
-  for update using (is_superadmin(auth.uid()));
-create policy devices_delete_superadmin on devices
-  for delete using (is_superadmin(auth.uid()));
+create policy devices_write_developer on devices
+  for insert with check (is_developer(auth.uid()));
+create policy devices_update_developer on devices
+  for update using (is_developer(auth.uid()));
+create policy devices_delete_developer on devices
+  for delete using (is_developer(auth.uid()));
 
 create policy activity_events_select_admin_like on activity_events
   for select using (is_admin_like(auth.uid()));
