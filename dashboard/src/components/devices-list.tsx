@@ -56,11 +56,15 @@ function HealthDot({ device, openAlertCount }: { device: Device; openAlertCount:
 
 export function DevicesList({
   devices,
-  isSuperadmin,
+  isDeveloper,
+  canAddDevice = isDeveloper,
+  canDisableDevice = isDeveloper,
   openAlertCounts,
 }: {
   devices: Device[];
-  isSuperadmin: boolean;
+  isDeveloper: boolean;
+  canAddDevice?: boolean;
+  canDisableDevice?: boolean;
   openAlertCounts: Record<string, number>;
 }) {
   const router = useRouter();
@@ -126,7 +130,7 @@ export function DevicesList({
         </div>
       ) : null}
 
-      {isSuperadmin ? (
+      {canAddDevice ? (
         <div>
           <button
             className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white"
@@ -210,7 +214,7 @@ export function DevicesList({
               <th className="p-3">Last seen</th>
               <th className="p-3">Consent</th>
               <th className="p-3">Version</th>
-              {isSuperadmin ? <th className="p-3 text-right">Actions</th> : null}
+              {canDisableDevice ? <th className="p-3 text-right">Actions</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -247,7 +251,7 @@ export function DevicesList({
                   <td className="p-3 text-slate-500">
                     {d.agent_version ? `v${d.agent_version}` : "—"}
                   </td>
-                  {isSuperadmin ? (
+                  {canDisableDevice ? (
                     <td className="p-3 text-right">
                       {d.status !== "disabled" ? (
                         <button

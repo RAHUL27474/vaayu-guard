@@ -33,7 +33,8 @@ export default async function AlertsPage() {
       <AlertsList
         alerts={alerts ?? []}
         deviceMap={Object.fromEntries(deviceMap)}
-        isSuperadmin={session.profile.role === "superadmin"}
+        isDeveloper={session.profile.role === "developer"}
+        canCloseWindow
       />
     </div>
   );

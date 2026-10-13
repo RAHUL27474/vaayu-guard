@@ -301,6 +301,79 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: {
+          id: boolean
+          uninstall_code: string
+          developer_code: string
+          updated_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          uninstall_code: string
+          developer_code?: string
+          updated_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          uninstall_code?: string
+          developer_code?: string
+          updated_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visibility_filters: {
+        Row: {
+          id: number
+          device_id: string
+          target: Database["public"]["Enums"]["filter_target"]
+          pattern: string
+          note: string | null
+          active: boolean
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          device_id: string
+          target: Database["public"]["Enums"]["filter_target"]
+          pattern: string
+          note?: string | null
+          active?: boolean
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: number
+          device_id?: string
+          target?: Database["public"]["Enums"]["filter_target"]
+          pattern?: string
+          note?: string | null
+          active?: boolean
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visibility_filters_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       daily_identity_activity: {
@@ -322,13 +395,14 @@ export type Database = {
         Args: { uid: string }
         Returns: boolean
       }
-      is_superadmin: {
+      is_developer: {
         Args: { uid: string }
         Returns: boolean
       }
     }
     Enums: {
-      user_role: "admin" | "superadmin"
+      filter_target: "tab" | "email" | "whatsapp"
+      user_role: "admin" | "developer"
       activity_channel: "email" | "whatsapp"
       event_confidence: "high" | "low"
       device_status: "pending" | "active" | "disabled"
@@ -349,5 +423,7 @@ export type ActivityEvent = Tables<"activity_events">
 export type Alert = Tables<"alerts">
 export type Session = Tables<"sessions">
 export type WindowActivity = Tables<"window_activity">
+export type VisibilityFilter = Tables<"visibility_filters">
+export type AppSettings = Tables<"app_settings">
 export type DailyIdentityActivity =
   Database["public"]["Views"]["daily_identity_activity"]["Row"]
