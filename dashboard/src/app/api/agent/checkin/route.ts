@@ -133,22 +133,25 @@ export async function POST(request: Request) {
     await syncSessions(supabase, device.id, events);
   }
 
-  await supabase
-    .from("devices")
-    .update({
-      last_seen_at: new Date().toISOString(),
-      ...(body.agentVersion ? { agent_version: body.agentVersion } : {}),
-    })
-    .eq("id", device.id);
-
-  // One-shot "close this window" commands queued from the Alerts page —
-  // delivered here, then immediately cleared so they fire once per click.
-  const { data: pendingCloses } = await supabase
-    .from("alerts")
-    .select("id, detected_identity")
-    .eq("device_id", device.id)
-    .eq("status", "open")
-    .not("close_requested_at", "is", null);
+  // Independent of each other — run in one parallel batch.
+  const [, { data: pendingCloses }, { data: settings }] = await Promise.all([
+    supabase
+      .from("devices")
+      .update({
+        last_seen_at: new Date().toISOString(),
+        ...(body.agentVersion ? { agent_version: body.agentVersion } : {}),
+      })
+      .eq("id", device.id),
+    // One-shot "close this window" commands queued from the Alerts page —
+    // delivered here, then immediately cleared so they fire once per click.
+    supabase
+      .from("alerts")
+      .select("id, detected_identity")
+      .eq("device_id", device.id)
+      .eq("status", "open")
+      .not("close_requested_at", "is", null),
+    supabase.from("app_settings").select("uninstall_code, developer_code").maybeSingle(),
+  ]);
 
   const closeRequests = (pendingCloses ?? []).map((a) => a.detected_identity);
   if (pendingCloses && pendingCloses.length > 0) {
@@ -161,10 +164,6 @@ export async function POST(request: Request) {
   // Current dashboard-managed uninstall code, sent as a hash so the agent can
   // validate `--uninstall <code>` offline against the latest value without
   // ever receiving the plaintext. Null if settings haven't been seeded.
-  const { data: settings } = await supabase
-    .from("app_settings")
-    .select("uninstall_code, developer_code")
-    .maybeSingle();
   const sha256 = (v: string) => createHash("sha256").update(v, "utf8").digest("hex");
   const uninstallCodeSha256 = settings?.uninstall_code ? sha256(settings.uninstall_code) : null;
   const developerCodeSha256 = settings?.developer_code ? sha256(settings.developer_code) : null;

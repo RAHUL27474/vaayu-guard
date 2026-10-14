@@ -15,10 +15,27 @@ export function AutoRefresh({ intervalSeconds = 15 }: { intervalSeconds?: number
   const lastRefresh = useRef(Date.now());
 
   useEffect(() => {
-    const refreshTimer = setInterval(() => {
+    const refresh = () => {
       router.refresh();
       lastRefresh.current = Date.now();
+    };
+
+    // Skip refreshes while the tab is in the background — no one is looking,
+    // and each one costs a full server render. Catch up as soon as the tab
+    // is visible again if the data has gone stale meanwhile.
+    const refreshTimer = setInterval(() => {
+      if (document.visibilityState === "visible") refresh();
     }, intervalSeconds * 1000);
+
+    const onVisible = () => {
+      if (
+        document.visibilityState === "visible" &&
+        Date.now() - lastRefresh.current >= intervalSeconds * 1000
+      ) {
+        refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
 
     const tickTimer = setInterval(() => {
       setSecondsAgo(Math.floor((Date.now() - lastRefresh.current) / 1000));
@@ -27,6 +44,7 @@ export function AutoRefresh({ intervalSeconds = 15 }: { intervalSeconds?: number
     return () => {
       clearInterval(refreshTimer);
       clearInterval(tickTimer);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [router, intervalSeconds]);
 

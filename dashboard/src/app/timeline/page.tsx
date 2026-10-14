@@ -18,44 +18,54 @@ export default async function TimelinePage({
   const { device: deviceId, date: dateParam } = await searchParams;
   const supabase = await createClient();
 
-  const { data: devices } = await supabase
-    .from("devices")
-    .select("id, device_label, hostname, assigned_to_user")
-    .order("registered_at", { ascending: false });
-
-  const activeDeviceId = deviceId ?? devices?.[0]?.id;
-
   // Scoped to one day instead of a flat row limit — with enough activity,
   // a fixed limit(N) silently drops older entries as new ones come in
   // (confirmed live: this looked like Timeline entries "disappearing").
   const date = dateParam ?? todayIST();
   const { startUtc, endUtc } = istDayBoundsUtc(date);
 
-  const [{ data: rows }, { data: recentAcrossFleet }] = await Promise.all([
-    activeDeviceId
-      ? supabase
-          .from("window_activity")
-          .select("*")
-          .eq("device_id", activeDeviceId)
-          .gte("captured_at", startUtc)
-          .lt("captured_at", endUtc)
-          .order("captured_at", { ascending: false })
-      : Promise.resolve({ data: [] as WindowActivity[] }),
+  const dayRowsFor = (id: string) =>
+    supabase
+      .from("window_activity")
+      .select("*")
+      .eq("device_id", id)
+      .gte("captured_at", startUtc)
+      .lt("captured_at", endUtc)
+      .order("captured_at", { ascending: false });
+
+  // When the device is already in the URL, its day rows don't depend on the
+  // device list — fetch everything in one parallel batch.
+  const [{ data: devices }, explicitRows, { data: recentAcrossFleet }] = await Promise.all([
+    supabase
+      .from("devices")
+      .select("id, device_label, hostname, assigned_to_user")
+      .order("registered_at", { ascending: false }),
+    deviceId ? dayRowsFor(deviceId) : null,
     // Enough rows across all devices that, after taking the first per
     // device below, every enrolled PC likely has a recent entry. This one
     // is deliberately NOT date-scoped — it's "what's open right now", not history.
     supabase
       .from("window_activity")
-      .select("*")
+      .select("device_id, process_name, window_title, captured_at")
       .order("captured_at", { ascending: false })
       .limit(500),
   ]);
+
+  const activeDeviceId = deviceId ?? devices?.[0]?.id;
+  const rows: WindowActivity[] = explicitRows
+    ? explicitRows.data ?? []
+    : activeDeviceId
+      ? (await dayRowsFor(activeDeviceId)).data ?? []
+      : [];
 
   // Right now, per device: the single most recent thing seen — an
   // approximation of "what's open" (a window that hasn't changed in a
   // while produces no new rows, so this is "last observed", not a live
   // poll of every open window every second).
-  const latestByDevice = new Map<string, WindowActivity>();
+  const latestByDevice = new Map<
+    string,
+    Pick<WindowActivity, "device_id" | "process_name" | "window_title" | "captured_at">
+  >();
   for (const row of recentAcrossFleet ?? []) {
     if (!latestByDevice.has(row.device_id)) latestByDevice.set(row.device_id, row);
   }
@@ -146,7 +156,7 @@ export default async function TimelinePage({
       </div>
 
       <TimelineTable
-        rows={rows ?? []}
+        rows={rows}
         emptyMessage={`No activity recorded for this device on ${date}.`}
       />
     </div>

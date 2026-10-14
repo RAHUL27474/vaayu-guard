@@ -16,17 +16,18 @@ export type SessionUser = {
 export const getSessionUser = cache(async function getSessionUser(): Promise<SessionUser | null> {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  // Verified locally against the project's asymmetric signing keys — no
+  // round trip to the Auth server (see lib/supabase/middleware.ts).
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (!claims?.sub) return null;
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("*")
-    .eq("id", user.id)
+    .eq("id", claims.sub)
     .single();
   if (!profile) return null;
 
-  return { id: user.id, email: user.email ?? null, profile };
+  return { id: claims.sub, email: (claims.email as string | undefined) ?? null, profile };
 });

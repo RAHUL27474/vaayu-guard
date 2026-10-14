@@ -26,17 +26,17 @@ export default async function DeviceDetailPage({
   const { date: dateParam } = await searchParams;
   const supabase = await createClient();
 
-  const { data: device } = await supabase.from("devices").select("*").eq("id", id).single();
-  if (!device) notFound();
-
   // Scoped to one day instead of a flat row limit — with enough activity,
   // a fixed limit(N) silently drops older entries as new ones come in
   // (confirmed live: this looked like Timeline entries "disappearing").
   const date = dateParam ?? todayIST();
   const { startUtc, endUtc } = istDayBoundsUtc(date);
 
-  const [{ data: alerts }, { data: daily }, { data: activityRows }, { data: openAlerts }] =
+  // All in one parallel batch (the device lookup included) — none of these
+  // queries depends on another's result.
+  const [{ data: device }, { data: alerts }, { data: daily }, { data: activityRows }, { data: openAlerts }] =
     await Promise.all([
+      supabase.from("devices").select("*").eq("id", id).maybeSingle(),
       supabase.from("alerts").select("*").eq("device_id", id).order("last_seen_at", { ascending: false }),
       supabase
         .from("daily_identity_activity")
@@ -53,6 +53,7 @@ export default async function DeviceDetailPage({
         .order("captured_at", { ascending: false }),
       supabase.from("alerts").select("id").eq("device_id", id).eq("status", "open"),
     ]);
+  if (!device) notFound();
 
   const online =
     !!device.last_seen_at && Date.now() - new Date(device.last_seen_at).getTime() < ONLINE_WINDOW_MS;

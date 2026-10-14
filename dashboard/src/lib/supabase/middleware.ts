@@ -24,9 +24,12 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() verifies the JWT locally against the project's (cached)
+  // asymmetric signing keys and only hits the Auth server when the access
+  // token actually needs refreshing — getUser() was a network round trip
+  // to Supabase on every single request.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ?? null;
 
   const path = request.nextUrl.pathname;
   const isProtected =
