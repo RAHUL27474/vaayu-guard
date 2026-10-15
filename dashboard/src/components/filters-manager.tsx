@@ -74,7 +74,7 @@ export function FiltersManager({
 
   if (devices.length === 0) {
     return (
-      <p className="rounded-lg border border-slate-200 bg-white p-6 text-center text-slate-500">
+      <p className="rounded-lg border border-line bg-surface p-6 text-center text-muted">
         No devices enrolled yet. Add a device first, then you can filter what it reports.
       </p>
     );
@@ -84,14 +84,14 @@ export function FiltersManager({
     <div className="space-y-6">
       <form
         onSubmit={add}
-        className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2"
+        className="grid gap-3 rounded-lg border border-line bg-surface p-4 sm:grid-cols-2"
       >
         <div>
-          <label className="block text-xs font-medium text-slate-500">Device</label>
+          <label className="block text-xs font-medium text-muted">Device</label>
           <select
             value={deviceId}
             onChange={(e) => setDeviceId(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-line-strong px-3 py-2 text-sm"
           >
             {devices.map((d) => (
               <option key={d.id} value={d.id}>
@@ -102,11 +102,11 @@ export function FiltersManager({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-500">Hide by</label>
+          <label className="block text-xs font-medium text-muted">Hide by</label>
           <select
             value={target}
             onChange={(e) => setTarget(e.target.value as VisibilityFilter["target"])}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-line-strong px-3 py-2 text-sm"
           >
             <option value="tab">Tab / site (matches window title)</option>
             <option value="email">Email address</option>
@@ -114,7 +114,7 @@ export function FiltersManager({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-500">
+          <label className="block text-xs font-medium text-muted">
             {target === "tab"
               ? "Keyword / domain (e.g. facebook.com)"
               : target === "email"
@@ -124,32 +124,32 @@ export function FiltersManager({
           <input
             value={pattern}
             onChange={(e) => setPattern(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-line-strong px-3 py-2 text-sm"
             placeholder={
               target === "tab" ? "facebook.com" : target === "email" ? "someone@gmail.com" : "+91…"
             }
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-500">Note (optional)</label>
+          <label className="block text-xs font-medium text-muted">Note (optional)</label>
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-line-strong px-3 py-2 text-sm"
             placeholder="why this is hidden"
           />
         </div>
-        {error ? <p className="text-sm text-rose-600 sm:col-span-2">{error}</p> : null}
+        {error ? <p className="text-sm text-rose-600 sm:col-span-2 dark:text-rose-400">{error}</p> : null}
         <button
           type="submit"
           disabled={pending}
-          className="w-fit rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50 sm:col-span-2"
+          className="w-fit rounded-md bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-50 sm:col-span-2"
         >
           {pending ? "Adding…" : "Add hide rule"}
         </button>
       </form>
 
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted">
         Matching tabs, emails and WhatsApp numbers are dropped at the agent&apos;s
         next check-in and never stored — the admin never sees them. Existing
         data already stored is not removed.
@@ -159,40 +159,40 @@ export function FiltersManager({
         {devices.map((d) => {
           const rules = byDevice.get(d.id) ?? [];
           return (
-            <div key={d.id} className="rounded-lg border border-slate-200 bg-white">
-              <div className="flex items-center justify-between border-b border-slate-200 p-3">
+            <div key={d.id} className="rounded-lg border border-line bg-surface">
+              <div className="flex items-center justify-between border-b border-line p-3">
                 <span className="font-medium">{deviceName(d)}</span>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-subtle">
                   {rules.length} rule{rules.length === 1 ? "" : "s"}
                 </span>
               </div>
               {rules.length === 0 ? (
-                <p className="p-3 text-sm text-slate-400">
+                <p className="p-3 text-sm text-subtle">
                   Nothing hidden — the admin sees everything from this PC.
                 </p>
               ) : (
-                <ul className="divide-y divide-slate-100">
+                <ul className="divide-y divide-line-soft">
                   {rules.map((r) => (
-                    <li key={r.id} className="flex items-center gap-3 p-3 text-sm">
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                    <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 p-3 text-sm">
+                      <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">
                         {TARGET_LABEL[r.target]}
                       </span>
-                      <code className={`break-all ${r.active ? "" : "text-slate-400 line-through"}`}>
+                      <code className={`break-all ${r.active ? "" : "text-subtle line-through"}`}>
                         {r.pattern}
                       </code>
-                      {r.note ? <span className="text-xs text-slate-400">({r.note})</span> : null}
+                      {r.note ? <span className="text-xs text-subtle">({r.note})</span> : null}
                       <div className="ml-auto flex items-center gap-3">
                         <button
                           disabled={pending}
                           onClick={() => toggle(r.id, !r.active)}
-                          className="text-xs text-slate-500 hover:underline"
+                          className="text-xs text-muted hover:underline"
                         >
                           {r.active ? "Disable" : "Enable"}
                         </button>
                         <button
                           disabled={pending}
                           onClick={() => remove(r.id)}
-                          className="text-xs text-rose-600 hover:underline"
+                          className="text-xs text-rose-600 hover:underline dark:text-rose-400"
                         >
                           Delete
                         </button>

@@ -73,7 +73,7 @@ export default async function DeviceDetailPage({
       <div>
         <Link
           href="/devices"
-          className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"
+          className="inline-flex items-center gap-1 text-sm text-muted hover:text-fg"
         >
           ← Back to Devices
         </Link>
@@ -82,7 +82,7 @@ export default async function DeviceDetailPage({
             <h1 className="text-2xl font-semibold">
               {device.device_label ?? device.hostname ?? device.id.slice(0, 8)}
             </h1>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-muted">
               {device.assigned_to_user ?? "Unassigned"} · {device.assigned_email}
             </p>
           </div>
@@ -90,37 +90,37 @@ export default async function DeviceDetailPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Status</p>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div className="rounded-lg border border-line bg-surface p-4">
+          <p className="text-xs uppercase tracking-wide text-subtle">Status</p>
           <p className="mt-1 flex items-center gap-1.5 text-sm font-medium">
-            <span className={`h-2 w-2 rounded-full ${online ? "bg-emerald-500" : "bg-slate-300"}`} />
+            <span className={`h-2 w-2 rounded-full ${online ? "bg-emerald-500" : "bg-line-strong"}`} />
             {online ? "Online" : "Offline"}
           </p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Open alerts</p>
-          <p className={`mt-1 text-sm font-medium ${openAlertCount > 0 ? "text-rose-600" : ""}`}>
+        <div className="rounded-lg border border-line bg-surface p-4">
+          <p className="text-xs uppercase tracking-wide text-subtle">Open alerts</p>
+          <p className={`mt-1 text-sm font-medium ${openAlertCount > 0 ? "text-rose-600 dark:text-rose-400" : ""}`}>
             {openAlertCount}
           </p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Agent version</p>
+        <div className="rounded-lg border border-line bg-surface p-4">
+          <p className="text-xs uppercase tracking-wide text-subtle">Agent version</p>
           <p className="mt-1 text-sm font-medium">
             {device.agent_version ? `v${device.agent_version}` : "—"}
           </p>
         </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Last seen</p>
+        <div className="rounded-lg border border-line bg-surface p-4">
+          <p className="text-xs uppercase tracking-wide text-subtle">Last seen</p>
           <p className="mt-1 text-sm font-medium">
             {device.last_seen_at ? new Date(device.last_seen_at).toLocaleString() : "never"}
           </p>
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 p-4">
-          <h2 className="font-medium text-slate-800">Alerts</h2>
+      <div className="rounded-lg border border-line bg-surface">
+        <div className="border-b border-line p-4">
+          <h2 className="font-medium text-fg-2">Alerts</h2>
         </div>
         <AlertsList
           alerts={alerts ?? []}
@@ -129,29 +129,29 @@ export default async function DeviceDetailPage({
         />
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 p-4">
-          <h2 className="font-medium text-slate-800">Daily summary</h2>
-          <p className="text-xs text-slate-400">
+      <div className="rounded-lg border border-line bg-surface">
+        <div className="border-b border-line p-4">
+          <h2 className="font-medium text-fg-2">Daily summary</h2>
+          <p className="text-xs text-subtle">
             Non-assigned email/WhatsApp time, per day, on this PC.
           </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+              <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-subtle">
                 <th className="p-3">Date</th>
                 <th className="p-3">Identity</th>
-                <th className="p-3">Channel</th>
-                <th className="p-3">Opened</th>
+                <th className="hidden p-3 md:table-cell">Channel</th>
+                <th className="hidden p-3 md:table-cell">Opened</th>
                 <th className="p-3">Total time</th>
-                <th className="p-3">In foreground</th>
+                <th className="hidden p-3 sm:table-cell">In foreground</th>
               </tr>
             </thead>
             <tbody>
               {(daily ?? []).length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-slate-500">
+                  <td colSpan={6} className="p-6 text-center text-muted">
                     No mismatch activity recorded yet.
                   </td>
                 </tr>
@@ -162,20 +162,20 @@ export default async function DeviceDetailPage({
                   return (
                     <tr
                       key={`${row.detected_identity}-${row.activity_date}-${i}`}
-                      className="border-b border-slate-100 last:border-0"
+                      className="border-b border-line-soft last:border-0"
                     >
-                      <td className="p-3 text-slate-500">{formatDate(row.activity_date)}</td>
-                      <td className="p-3">
+                      <td className="p-3 text-muted">{formatDate(row.activity_date)}</td>
+                      <td className="p-3 break-all">
                         {row.channel === "whatsapp" ? formatWhatsAppIdentity(row.detected_identity) : row.detected_identity}
                       </td>
-                      <td className="p-3 capitalize">{row.channel}</td>
-                      <td className="p-3">
+                      <td className="hidden p-3 capitalize md:table-cell">{row.channel}</td>
+                      <td className="hidden p-3 md:table-cell">
                         {row.session_count} time{row.session_count === 1 ? "" : "s"}
                       </td>
-                      <td className="p-3 font-semibold text-slate-700">
+                      <td className="p-3 font-semibold text-fg-2">
                         {formatDuration(row.total_duration_seconds)}
                       </td>
-                      <td className="p-3 text-slate-500">{fgPct}%</td>
+                      <td className="hidden p-3 text-muted sm:table-cell">{fgPct}%</td>
                     </tr>
                   );
                 })
@@ -185,11 +185,11 @@ export default async function DeviceDetailPage({
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
+      <div className="rounded-lg border border-line bg-surface">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
           <div>
-            <h2 className="font-medium text-slate-800">Timeline</h2>
-            <p className="text-xs text-slate-400">
+            <h2 className="font-medium text-fg-2">Timeline</h2>
+            <p className="text-xs text-subtle">
               Every app/tab window title seen on this PC — titles only, never content.
             </p>
           </div>

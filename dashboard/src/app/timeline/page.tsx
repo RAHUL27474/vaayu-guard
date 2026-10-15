@@ -84,10 +84,10 @@ export default async function TimelinePage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
           <h1 className="text-2xl font-semibold">Timeline</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted">
             Every app/tab window title seen on a PC — general activity log,
             not just email/WhatsApp mismatches. Titles only, never content.
           </p>
@@ -95,16 +95,16 @@ export default async function TimelinePage({
         <AutoRefresh intervalSeconds={15} />
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 p-4">
-          <h2 className="font-medium text-slate-800">Right now, across all PCs</h2>
-          <p className="text-xs text-slate-400">
+      <div className="rounded-lg border border-line bg-surface">
+        <div className="border-b border-line p-4">
+          <h2 className="font-medium text-fg-2">Right now, across all PCs</h2>
+          <p className="text-xs text-subtle">
             Last observed window per device — not a guarantee it's still open right now.
           </p>
         </div>
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-line-soft">
           {(devices ?? []).length === 0 ? (
-            <p className="p-4 text-sm text-slate-500">No devices enrolled yet.</p>
+            <p className="p-4 text-sm text-muted">No devices enrolled yet.</p>
           ) : (
             (devices ?? []).map((d) => {
               const latest = latestByDevice.get(d.id);
@@ -112,12 +112,12 @@ export default async function TimelinePage({
                 <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
                   <span className="font-medium">{d.device_label ?? d.hostname ?? d.id.slice(0, 8)}</span>
                   {latest ? (
-                    <span className="text-slate-600">
+                    <span className="min-w-0 text-muted [overflow-wrap:anywhere]">
                       <span className="font-medium">{latest.process_name}</span> — {latest.window_title}
-                      <span className="ml-2 text-xs text-slate-400">{timeAgo(latest.captured_at)}</span>
+                      <span className="ml-2 text-xs text-subtle">{timeAgo(latest.captured_at)}</span>
                     </span>
                   ) : (
-                    <span className="text-slate-400">No activity yet</span>
+                    <span className="text-subtle">No activity yet</span>
                   )}
                 </div>
               );
@@ -128,7 +128,7 @@ export default async function TimelinePage({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="mb-2 text-sm font-medium text-slate-700">History for one PC, one day at a time:</p>
+          <p className="mb-2 text-sm font-medium text-fg-2">History for one PC, one day at a time:</p>
           <div className="flex flex-wrap gap-2">
             {(devices ?? []).map((d) => (
               <Link
@@ -136,8 +136,8 @@ export default async function TimelinePage({
                 href={`/timeline?device=${d.id}&date=${date}`}
                 className={`rounded-full border px-3 py-1 text-sm ${
                   d.id === activeDeviceId
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-300 text-slate-700 hover:bg-slate-50"
+                    ? "border-primary bg-primary text-primary-fg"
+                    : "border-line-strong text-fg-2 hover:bg-surface-2"
                 }`}
               >
                 {d.device_label ?? d.hostname ?? d.id.slice(0, 8)}

@@ -21,10 +21,10 @@ export default async function AlertsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
           <h1 className="text-2xl font-semibold">Alerts</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted">
             Non-assigned email/WhatsApp activity detected on company PCs.
           </p>
         </div>

@@ -70,23 +70,23 @@ export function SettingsPanel({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <p className="text-xs uppercase tracking-wide text-slate-400">{title}</p>
-        <code className="mt-2 block break-all rounded bg-slate-50 p-2 text-lg font-semibold">
+      <div className="rounded-lg border border-line bg-surface p-4">
+        <p className="text-xs uppercase tracking-wide text-subtle">{title}</p>
+        <code className="mt-2 block break-all rounded bg-surface-2 p-2 text-lg font-semibold">
           {code}
         </code>
-        <p className="mt-2 text-xs text-slate-500">
-          {description} <code>{command}</code>. Changing it takes
+        <p className="mt-2 text-xs text-muted">
+          {description} <code className="break-all">{command}</code>. Changing it takes
           effect on each PC at its next check-in.
         </p>
         {updatedAt ? (
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-subtle">
             Last changed {new Date(updatedAt).toLocaleString()}.
           </p>
         ) : null}
         <button
           onClick={() => setOpen(true)}
-          className="mt-3 rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white"
+          className="mt-3 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-fg"
         >
           Change code
         </button>
@@ -94,17 +94,17 @@ export function SettingsPanel({
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
+          <div className="w-full max-w-md rounded-lg bg-surface p-5 shadow-xl">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold">Change {title.toLowerCase()}</h2>
-              <button onClick={reset} className="text-sm text-slate-400 hover:underline">
+              <button onClick={reset} className="text-sm text-subtle hover:underline">
                 Close
               </button>
             </div>
 
             {step === "password" ? (
               <div className="mt-4 space-y-3">
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-muted">
                   For security, confirm your password (the one you logged in with).
                 </p>
                 <input
@@ -114,16 +114,16 @@ export function SettingsPanel({
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && toChoose()}
                   placeholder="Your password"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-line-strong px-3 py-2 text-sm"
                 />
-                {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+                {error ? <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p> : null}
                 <div className="flex justify-end gap-2">
-                  <button onClick={reset} className="rounded-md px-3 py-1.5 text-sm text-slate-600">
+                  <button onClick={reset} className="rounded-md px-3 py-1.5 text-sm text-muted">
                     Cancel
                   </button>
                   <button
                     onClick={toChoose}
-                    className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white"
+                    className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-fg"
                   >
                     Continue
                   </button>
@@ -142,7 +142,7 @@ export function SettingsPanel({
                     />
                     <span>
                       <span className="font-medium">Generate a random code</span>
-                      <span className="block text-xs text-slate-500">
+                      <span className="block text-xs text-muted">
                         A new secure code like <code>VGAB-CDEF-GHJK</code> is created for you.
                       </span>
                     </span>
@@ -162,23 +162,23 @@ export function SettingsPanel({
                         onChange={(e) => setCustomCode(e.target.value)}
                         onFocus={() => setMode("manual")}
                         placeholder="Enter a code (6–64 characters)"
-                        className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                        className="mt-1 w-full rounded-md border border-line-strong px-3 py-2 text-sm"
                       />
                     </span>
                   </label>
                 </div>
-                {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+                {error ? <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p> : null}
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={() => setStep("password")}
-                    className="rounded-md px-3 py-1.5 text-sm text-slate-600"
+                    className="rounded-md px-3 py-1.5 text-sm text-muted"
                   >
                     Back
                   </button>
                   <button
                     onClick={submit}
                     disabled={pending}
-                    className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                    className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-50"
                   >
                     {pending ? "Saving…" : "Save new code"}
                   </button>

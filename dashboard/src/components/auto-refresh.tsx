@@ -49,7 +49,7 @@ export function AutoRefresh({ intervalSeconds = 15 }: { intervalSeconds?: number
   }, [router, intervalSeconds]);
 
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs text-slate-400">
+    <span className="inline-flex items-center gap-1.5 text-xs text-subtle">
       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
       Live · updated {secondsAgo}s ago
     </span>

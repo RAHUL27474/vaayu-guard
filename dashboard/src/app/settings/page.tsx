@@ -28,7 +28,7 @@ export default async function SettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted">
           {isDeveloper
             ? "Admin and developer can manage the uninstall code; the developer-access code is developer-only."
             : "Manage the agent uninstall code."}
@@ -56,7 +56,7 @@ export default async function SettingsPage() {
           ) : null}
         </div>
       ) : (
-        <p className="rounded-lg border border-slate-200 bg-white p-6 text-center text-slate-500">
+        <p className="rounded-lg border border-line bg-surface p-6 text-center text-muted">
           Settings have not been initialised yet (run migration 0010).
         </p>
       )}

@@ -35,43 +35,43 @@ export default async function ActivityPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Activity</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted">
           How long non-assigned emails/WhatsApp stayed open, per device per day.
         </p>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 p-4">
-          <h2 className="font-medium text-slate-800">
+      <div className="rounded-lg border border-line bg-surface">
+        <div className="border-b border-line p-4">
+          <h2 className="font-medium text-fg-2">
             Currently open ({openSessions?.length ?? 0})
           </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+              <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-subtle">
                 <th className="p-3">Device</th>
                 <th className="p-3">Identity</th>
-                <th className="p-3">Channel</th>
+                <th className="hidden p-3 sm:table-cell">Channel</th>
                 <th className="p-3">Since</th>
               </tr>
             </thead>
             <tbody>
               {(openSessions ?? []).length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-6 text-center text-slate-500">
+                  <td colSpan={4} className="p-6 text-center text-muted">
                     Nothing open right now.
                   </td>
                 </tr>
               ) : (
                 (openSessions ?? []).map((s) => (
-                  <tr key={s.id} className="border-b border-slate-100 last:border-0">
+                  <tr key={s.id} className="border-b border-line-soft last:border-0">
                     <td className="p-3 font-medium">{deviceName(s.device_id)}</td>
-                    <td className="p-3">
+                    <td className="p-3 break-all">
                       {s.channel === "whatsapp" ? formatWhatsAppIdentity(s.detected_identity) : s.detected_identity}
                     </td>
-                    <td className="p-3 capitalize">{s.channel}</td>
-                    <td className="p-3 text-slate-500">
+                    <td className="hidden p-3 capitalize sm:table-cell">{s.channel}</td>
+                    <td className="p-3 text-muted">
                       {new Date(s.started_at).toLocaleString()}
                     </td>
                   </tr>
@@ -82,27 +82,27 @@ export default async function ActivityPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 p-4">
-          <h2 className="font-medium text-slate-800">Daily summary</h2>
+      <div className="rounded-lg border border-line bg-surface">
+        <div className="border-b border-line p-4">
+          <h2 className="font-medium text-fg-2">Daily summary</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
+              <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-subtle">
                 <th className="p-3">Date</th>
                 <th className="p-3">Device</th>
                 <th className="p-3">Identity</th>
-                <th className="p-3">Channel</th>
-                <th className="p-3">Opened</th>
+                <th className="hidden p-3 md:table-cell">Channel</th>
+                <th className="hidden p-3 md:table-cell">Opened</th>
                 <th className="p-3">Total time</th>
-                <th className="p-3">In foreground</th>
+                <th className="hidden p-3 sm:table-cell">In foreground</th>
               </tr>
             </thead>
             <tbody>
               {(daily ?? []).length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-6 text-center text-slate-500">
+                  <td colSpan={7} className="p-6 text-center text-muted">
                     No activity recorded yet.
                   </td>
                 </tr>
@@ -115,21 +115,21 @@ export default async function ActivityPage() {
                   return (
                     <tr
                       key={`${row.device_id}-${row.detected_identity}-${row.activity_date}-${i}`}
-                      className="border-b border-slate-100 last:border-0"
+                      className="border-b border-line-soft last:border-0"
                     >
-                      <td className="p-3 text-slate-500">{formatDate(row.activity_date)}</td>
+                      <td className="p-3 text-muted">{formatDate(row.activity_date)}</td>
                       <td className="p-3 font-medium">{deviceName(row.device_id)}</td>
-                      <td className="p-3">
+                      <td className="p-3 break-all">
                         {row.channel === "whatsapp" ? formatWhatsAppIdentity(row.detected_identity) : row.detected_identity}
                       </td>
-                      <td className="p-3 capitalize">{row.channel}</td>
-                      <td className="p-3">
+                      <td className="hidden p-3 capitalize md:table-cell">{row.channel}</td>
+                      <td className="hidden p-3 md:table-cell">
                         {row.session_count} time{row.session_count === 1 ? "" : "s"}
                       </td>
-                      <td className="p-3 font-semibold text-slate-700">
+                      <td className="p-3 font-semibold text-fg-2">
                         {formatDuration(row.total_duration_seconds)}
                       </td>
-                      <td className="p-3 text-slate-500">{fgPct}%</td>
+                      <td className="hidden p-3 text-muted sm:table-cell">{fgPct}%</td>
                     </tr>
                   );
                 })

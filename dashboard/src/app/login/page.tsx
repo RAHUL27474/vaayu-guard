@@ -7,7 +7,7 @@ export default async function LoginPage() {
   if (session) redirect("/devices");
 
   return (
-    <div className="mx-auto max-w-sm">
+    <div className="mx-auto mt-8 w-full max-w-sm rounded-lg border border-line bg-surface p-6 shadow-sm sm:mt-16">
       <h1 className="text-xl font-semibold">VaayuGuard sign in</h1>
       <LoginForm />
     </div>

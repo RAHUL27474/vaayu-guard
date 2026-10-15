@@ -34,7 +34,7 @@ export function DateNav({
     <div className="flex items-center gap-1.5 text-sm">
       <button
         onClick={() => go(prevDate)}
-        className="rounded-md border border-slate-300 px-2 py-1 hover:bg-slate-50"
+        className="rounded-md border border-line-strong px-2 py-1 hover:bg-surface-2"
         aria-label="Previous day"
       >
         ←
@@ -43,11 +43,11 @@ export function DateNav({
         type="date"
         value={date}
         onChange={(e) => e.target.value && go(e.target.value)}
-        className="rounded-md border border-slate-300 px-2 py-1"
+        className="rounded-md border border-line-strong px-2 py-1"
       />
       <button
         onClick={() => go(nextDate)}
-        className="rounded-md border border-slate-300 px-2 py-1 hover:bg-slate-50"
+        className="rounded-md border border-line-strong px-2 py-1 hover:bg-surface-2"
         aria-label="Next day"
       >
         →

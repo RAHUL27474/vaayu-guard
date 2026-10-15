@@ -23,7 +23,7 @@ export default async function FiltersPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Filters</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted">
           Developer-only. Choose what each PC is allowed to report — matching
           tabs, emails and WhatsApp numbers are never stored and never shown to
           the admin.

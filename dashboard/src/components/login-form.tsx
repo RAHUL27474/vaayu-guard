@@ -34,7 +34,7 @@ export function LoginForm() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-line-strong px-3 py-2 text-sm"
         />
       </div>
       <div>
@@ -44,14 +44,14 @@ export function LoginForm() {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="mt-1 w-full rounded-md border border-line-strong px-3 py-2 text-sm"
         />
       </div>
-      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+      {error ? <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p> : null}
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+        className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-fg disabled:opacity-50"
       >
         {pending ? "Signing in…" : "Sign in"}
       </button>
