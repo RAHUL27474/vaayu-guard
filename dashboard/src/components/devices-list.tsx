@@ -4,7 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Device } from "@/lib/types/database";
-import { createDevice, disableDevice } from "@/lib/actions/device-actions";
+import {
+  createDevice,
+  deleteDevice,
+  disableDevice,
+  updateDevice,
+} from "@/lib/actions/device-actions";
 import { isOnline, timeAgo } from "@/lib/presence";
 
 function StatusBadge({ status }: { status: Device["status"] }) {
@@ -91,6 +96,59 @@ export function DevicesList({
   function disable(id: string) {
     startTransition(async () => {
       await disableDevice(id);
+      router.refresh();
+    });
+  }
+
+  function remove(d: Device) {
+    const name = d.device_label ?? d.hostname ?? "this device";
+    if (
+      !window.confirm(
+        `Delete "${name}" permanently?\n\nIts alerts, activity and Timeline records are deleted too. This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const res = await deleteDevice(d.id);
+      if (!res.ok) window.alert(res.error ?? "Could not delete the device.");
+      router.refresh();
+    });
+  }
+
+  const [editing, setEditing] = useState<Device | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editAssignedTo, setEditAssignedTo] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+
+  function openEdit(d: Device) {
+    setEditing(d);
+    setEditLabel(d.device_label ?? "");
+    setEditAssignedTo(d.assigned_to_user ?? "");
+    setEditEmail(d.assigned_email);
+    setEditPhone(d.assigned_phone ?? "");
+    setEditError(null);
+  }
+
+  function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    setEditError(null);
+    startTransition(async () => {
+      const res = await updateDevice({
+        deviceId: editing.id,
+        deviceLabel: editLabel,
+        assignedEmail: editEmail,
+        assignedPhone: editPhone,
+        assignedToUser: editAssignedTo,
+      });
+      if (!res.ok) {
+        setEditError(res.error ?? "Could not save changes.");
+        return;
+      }
+      setEditing(null);
       router.refresh();
     });
   }
@@ -246,15 +304,31 @@ export function DevicesList({
                   </td>
                   {canDisableDevice ? (
                     <td className="p-3 text-right">
-                      {d.status !== "disabled" ? (
+                      <div className="flex flex-wrap justify-end gap-x-3 gap-y-1">
                         <button
                           disabled={pending}
-                          onClick={() => disable(d.id)}
+                          onClick={() => openEdit(d)}
+                          className="text-xs text-fg hover:underline"
+                        >
+                          Edit
+                        </button>
+                        {d.status !== "disabled" ? (
+                          <button
+                            disabled={pending}
+                            onClick={() => disable(d.id)}
+                            className="text-xs text-amber-700 hover:underline dark:text-amber-400"
+                          >
+                            Disable
+                          </button>
+                        ) : null}
+                        <button
+                          disabled={pending}
+                          onClick={() => remove(d)}
                           className="text-xs text-rose-600 hover:underline dark:text-rose-400"
                         >
-                          Disable
+                          Delete
                         </button>
-                      ) : null}
+                      </div>
                     </td>
                   ) : null}
                 </tr>
@@ -263,6 +337,86 @@ export function DevicesList({
           </tbody>
         </table>
       </div>
+
+      {editing ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <form
+            onSubmit={saveEdit}
+            className="w-full max-w-md space-y-3 rounded-lg bg-surface p-5 shadow-xl"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold">
+                Edit {editing.device_label ?? editing.hostname ?? "device"}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                className="text-sm text-subtle hover:underline"
+              >
+                Close
+              </button>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted">Device label</label>
+              <input
+                value={editLabel}
+                onChange={(e) => setEditLabel(e.target.value)}
+                className="mt-1 w-full rounded-md border border-line-strong px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted">Assigned to (name)</label>
+              <input
+                value={editAssignedTo}
+                onChange={(e) => setEditAssignedTo(e.target.value)}
+                className="mt-1 w-full rounded-md border border-line-strong px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted">
+                Assigned company email *
+              </label>
+              <input
+                type="email"
+                required
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                className="mt-1 w-full rounded-md border border-line-strong px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted">
+                Assigned WhatsApp number
+              </label>
+              <input
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                placeholder="+91…"
+                className="mt-1 w-full rounded-md border border-line-strong px-3 py-2 text-sm"
+              />
+            </div>
+            {editError ? (
+              <p className="text-sm text-rose-600 dark:text-rose-400">{editError}</p>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                className="rounded-md px-3 py-1.5 text-sm text-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={pending}
+                className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-fg disabled:opacity-50"
+              >
+                {pending ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }
