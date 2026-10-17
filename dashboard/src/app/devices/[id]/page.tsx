@@ -196,6 +196,7 @@ export default async function DeviceDetailPage({
         <div className="p-4">
           <TimelineTable
             rows={(activityRows ?? []) as WindowActivity[]}
+            canDelete={session.profile.role === "developer"}
             emptyMessage={`No activity recorded for this device on ${date}.`}
           />
         </div>

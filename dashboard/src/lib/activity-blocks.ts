@@ -1,6 +1,7 @@
 import type { WindowActivity } from "@/lib/types/database";
 
 export type ActivityBlock = {
+  id: number; // the window_activity row this block starts at
   processName: string;
   windowTitle: string;
   url: string | null;
@@ -29,6 +30,7 @@ export function groupIntoBlocks(rows: WindowActivity[]): ActivityBlock[] {
     const startMs = new Date(row.captured_at).getTime();
     const endMs = next ? new Date(next.captured_at).getTime() : Date.now();
     return {
+      id: row.id,
       processName: row.process_name,
       windowTitle: row.window_title,
       url: row.url ?? null,

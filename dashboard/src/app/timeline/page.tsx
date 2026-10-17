@@ -16,7 +16,7 @@ export default async function TimelinePage({
 }: {
   searchParams: Promise<{ device?: string; date?: string }>;
 }) {
-  await requireAdmin();
+  const session = await requireAdmin();
   const { device: deviceId, date: dateParam } = await searchParams;
   const supabase = await createClient();
 
@@ -164,6 +164,7 @@ export default async function TimelinePage({
 
       <TimelineTable
         rows={rows}
+        canDelete={session.profile.role === "developer"}
         emptyMessage={`No activity recorded for this device on ${date}.`}
       />
     </div>
