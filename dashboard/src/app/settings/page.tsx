@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/auth-guard";
 import { createClient } from "@/lib/supabase/server";
 import { SettingsPanel } from "@/components/settings-panel";
+import { ChangePasswordPanel } from "@/components/change-password-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,7 @@ export default async function SettingsPage() {
           Settings have not been initialised yet (run migration 0010).
         </p>
       )}
+      <ChangePasswordPanel email={session.email} />
     </div>
   );
 }
