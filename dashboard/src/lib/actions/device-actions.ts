@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requireDeveloper } from "@/lib/auth-guard";
 import { generateToken, hashToken } from "@/lib/device-token";
 
 export async function createDevice(input: {
@@ -71,12 +71,12 @@ export async function updateDevice(input: {
 /**
  * Permanently deletes a device and — via ON DELETE CASCADE — its alerts,
  * activity, sessions, Timeline records and device-specific hide rules.
- * Admin or developer (RLS policy from migration 0018).
+ * Developer-only — checked here and by the devices_delete_developer RLS policy.
  */
 export async function deleteDevice(
   deviceId: string
 ): Promise<{ ok: boolean; error?: string }> {
-  await requireAdmin();
+  await requireDeveloper();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("devices")

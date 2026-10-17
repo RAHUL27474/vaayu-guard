@@ -321,13 +321,15 @@ export function DevicesList({
                             Disable
                           </button>
                         ) : null}
-                        <button
-                          disabled={pending}
-                          onClick={() => remove(d)}
-                          className="text-xs text-rose-600 hover:underline dark:text-rose-400"
-                        >
-                          Delete
-                        </button>
+                        {isDeveloper ? (
+                          <button
+                            disabled={pending}
+                            onClick={() => remove(d)}
+                            className="text-xs text-rose-600 hover:underline dark:text-rose-400"
+                          >
+                            Delete
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   ) : null}
