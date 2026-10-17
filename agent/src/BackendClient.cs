@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace VaayuMonitor.Agent;
 
 public record EnrollResult(string DeviceId, string DeviceToken, string AssignedEmail, string? AssignedPhone);
-public record CheckinResult(bool Ok, int Accepted, string AssignedEmail, string? AssignedPhone, string Status, IReadOnlyList<string> CloseRequests, string? UninstallCodeSha256, string? DeveloperCodeSha256);
+public record CheckinResult(bool Ok, int Accepted, string AssignedEmail, string? AssignedPhone, string Status, IReadOnlyList<string> CloseRequests, string? UninstallCodeSha256, string? DeveloperCodeSha256, IReadOnlyList<string> DisabledProfiles, IReadOnlyList<string> DisabledApps, int? LatestAgentVersion);
 
 /// <summary>Talks to the dashboard's /api/agent/* route handlers over HTTPS.</summary>
 public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
@@ -67,6 +67,10 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
                     capturedAt = w.CapturedAt.ToString("o"),
                     processName = w.ProcessName,
                     windowTitle = w.WindowTitle,
+                    url = w.Url,
+                    browserProfile = w.BrowserProfile,
+                    accountEmail = w.AccountEmail,
+                    whatsAppNumber = w.WhatsAppNumber,
                     isForeground = w.IsForeground,
                 }),
                 agentVersion = SelfUpdater.CurrentAgentVersion,
@@ -82,7 +86,7 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
             var body = await res.Content.ReadFromJsonAsync<CheckinResponseDto>(cancellationToken: ct);
             return body is null
                 ? null
-                : new CheckinResult(body.Ok, body.Accepted, body.AssignedEmail, body.AssignedPhone, body.Status, body.CloseRequests ?? [], body.UninstallCodeSha256, body.DeveloperCodeSha256);
+                : new CheckinResult(body.Ok, body.Accepted, body.AssignedEmail, body.AssignedPhone, body.Status, body.CloseRequests ?? [], body.UninstallCodeSha256, body.DeveloperCodeSha256, body.DisabledProfiles ?? [], body.DisabledApps ?? [], body.LatestAgentVersion);
         }
         catch (Exception ex)
         {
@@ -122,5 +126,8 @@ public class BackendClient(HttpClient http, ILogger<BackendClient> logger)
         [property: JsonPropertyName("status")] string Status,
         [property: JsonPropertyName("closeRequests")] List<string>? CloseRequests,
         [property: JsonPropertyName("uninstallCodeSha256")] string? UninstallCodeSha256,
-        [property: JsonPropertyName("developerCodeSha256")] string? DeveloperCodeSha256);
+        [property: JsonPropertyName("developerCodeSha256")] string? DeveloperCodeSha256,
+        [property: JsonPropertyName("disabledProfiles")] List<string>? DisabledProfiles,
+        [property: JsonPropertyName("disabledApps")] List<string>? DisabledApps,
+        [property: JsonPropertyName("latestAgentVersion")] int? LatestAgentVersion);
 }

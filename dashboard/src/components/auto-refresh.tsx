@@ -12,9 +12,12 @@ import { useRouter } from "next/navigation";
 export function AutoRefresh({ intervalSeconds = 15 }: { intervalSeconds?: number }) {
   const router = useRouter();
   const [secondsAgo, setSecondsAgo] = useState(0);
-  const lastRefresh = useRef(Date.now());
+  // Set on mount in the effect, not during render, so render stays pure.
+  const lastRefresh = useRef(0);
 
   useEffect(() => {
+    lastRefresh.current = Date.now();
+
     const refresh = () => {
       router.refresh();
       lastRefresh.current = Date.now();

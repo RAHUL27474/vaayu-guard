@@ -32,3 +32,22 @@ export function formatDate(iso: string): string {
     day: "numeric",
   });
 }
+
+/**
+ * Tidies a site for display: the agent stores the active tab's host only
+ * (e.g. "mail.google.com"), but older rows or odd values might be a full
+ * URL. Strips scheme, "www." and any path/query so the table always shows a
+ * clean domain. Returns null for empty input.
+ */
+export function formatSite(url: string | null | undefined): string | null {
+  const raw = (url ?? "").trim();
+  if (!raw) return null;
+  let host = raw;
+  try {
+    // Handles full URLs; for a bare host this throws and we fall through.
+    host = new URL(raw.includes("://") ? raw : `https://${raw}`).hostname;
+  } catch {
+    host = raw.replace(/^[a-z]+:\/\//i, "").split("/")[0];
+  }
+  return host.replace(/^www\./i, "") || null;
+}

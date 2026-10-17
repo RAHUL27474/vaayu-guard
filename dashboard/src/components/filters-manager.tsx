@@ -11,6 +11,8 @@ const TARGET_LABEL: Record<VisibilityFilter["target"], string> = {
   tab: "Tab / site",
   email: "Email address",
   whatsapp: "WhatsApp number",
+  profile: "Browser profile",
+  app: "App",
 };
 
 function deviceName(d: DeviceLite): string {
@@ -20,9 +22,12 @@ function deviceName(d: DeviceLite): string {
 export function FiltersManager({
   devices,
   filters,
+  suggestions = {},
 }: {
   devices: DeviceLite[];
   filters: VisibilityFilter[];
+  // Per device: apps and browser profiles/emails it has actually reported.
+  suggestions?: Record<string, { apps: string[]; profiles: string[] }>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -31,6 +36,16 @@ export function FiltersManager({
   const [pattern, setPattern] = useState("");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // Suggest real values this PC has reported, for the targets that need an
+  // exact match.
+  const listValues =
+    target === "app"
+      ? suggestions[deviceId]?.apps ?? []
+      : target === "profile"
+        ? suggestions[deviceId]?.profiles ?? []
+        : [];
+  const listId = listValues.length > 0 ? `filter-suggestions-${target}` : undefined;
 
   const byDevice = new Map<string, VisibilityFilter[]>();
   for (const f of filters) {
@@ -111,6 +126,8 @@ export function FiltersManager({
             <option value="tab">Tab / site (matches window title)</option>
             <option value="email">Email address</option>
             <option value="whatsapp">WhatsApp number</option>
+            <option value="profile">Browser profile / account (switch off a whole Chrome profile)</option>
+            <option value="app">App (switch off a whole app)</option>
           </select>
         </div>
         <div>
@@ -119,16 +136,36 @@ export function FiltersManager({
               ? "Keyword / domain (e.g. facebook.com)"
               : target === "email"
                 ? "Email address (or part of it)"
-                : "WhatsApp number"}
+                : target === "profile"
+                  ? "Profile's signed-in email, or its profile name"
+                  : target === "app"
+                    ? "App name (as shown in the Timeline's App column)"
+                    : "WhatsApp number"}
           </label>
           <input
             value={pattern}
             onChange={(e) => setPattern(e.target.value)}
+            list={listId}
             className="mt-1 w-full rounded-md border border-line-strong px-3 py-2 text-sm"
             placeholder={
-              target === "tab" ? "facebook.com" : target === "email" ? "someone@gmail.com" : "+91…"
+              target === "tab"
+                ? "facebook.com"
+                : target === "email"
+                  ? "someone@gmail.com"
+                  : target === "profile"
+                    ? "someone@vaayutrip.com"
+                    : target === "app"
+                      ? "chrome"
+                      : "+91…"
             }
           />
+          {listId ? (
+            <datalist id={listId}>
+              {listValues.map((v) => (
+                <option key={v} value={v} />
+              ))}
+            </datalist>
+          ) : null}
         </div>
         <div>
           <label className="block text-xs font-medium text-muted">Note (optional)</label>
@@ -150,9 +187,10 @@ export function FiltersManager({
       </form>
 
       <p className="text-xs text-muted">
-        Matching tabs, emails and WhatsApp numbers are dropped at the agent&apos;s
-        next check-in and never stored — the admin never sees them. Existing
-        data already stored is not removed.
+        Matching tabs, emails, WhatsApp numbers, browser profiles and apps are dropped
+        at the agent&apos;s next check-in and never stored — the admin never sees
+        them. A browser-profile rule silences everything from that Chrome
+        profile; an app rule silences everything from that app. Existing data already stored is not removed.
       </p>
 
       <div className="space-y-4">

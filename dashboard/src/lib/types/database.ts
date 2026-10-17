@@ -226,6 +226,10 @@ export type Database = {
           captured_at: string
           process_name: string
           window_title: string
+          url: string | null
+          browser_profile: string | null
+          account_email: string | null
+          whatsapp_number: string | null
           is_foreground: boolean
           created_at: string
         }
@@ -235,6 +239,10 @@ export type Database = {
           captured_at: string
           process_name: string
           window_title: string
+          url?: string | null
+          browser_profile?: string | null
+          account_email?: string | null
+          whatsapp_number?: string | null
           is_foreground?: boolean
           created_at?: string
         }
@@ -244,6 +252,10 @@ export type Database = {
           captured_at?: string
           process_name?: string
           window_title?: string
+          url?: string | null
+          browser_profile?: string | null
+          account_email?: string | null
+          whatsapp_number?: string | null
           is_foreground?: boolean
           created_at?: string
         }
@@ -401,7 +413,7 @@ export type Database = {
       }
     }
     Enums: {
-      filter_target: "tab" | "email" | "whatsapp"
+      filter_target: "tab" | "email" | "whatsapp" | "profile" | "app"
       user_role: "admin" | "developer"
       activity_channel: "email" | "whatsapp"
       event_confidence: "high" | "low"

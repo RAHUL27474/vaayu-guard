@@ -1,10 +1,20 @@
-# VaayuGuard WhatsApp Identity Helper
+# VaayuGuard Browser Helper
 
-A small Manifest V3 browser extension that reads which WhatsApp account is
-signed in on `web.whatsapp.com` and reports it to the VaayuGuard agent
-running on the same PC, over `http://127.0.0.1:8737` (loopback only — never
-leaves the machine except via the agent's own check-in, same as everything
-else VaayuGuard collects).
+A small Manifest V3 browser extension that reports two things to the
+VaayuGuard agent running on the same PC, over `http://127.0.0.1:8737`
+(loopback only — never leaves the machine except via the agent's own
+check-in, same as everything else VaayuGuard collects):
+
+1. **Which WhatsApp account is signed in** on `web.whatsapp.com`.
+2. **The active tab's site** — the hostname only (e.g. `mail.google.com`),
+   never the full URL, path, query string, or page content. The agent uses
+   this to label the foreground browser window in the Timeline with the site
+   it's showing. Internal pages (`chrome://`, extensions, `file://`, new-tab)
+   report nothing.
+
+It uses the `tabs` permission to read the active tab's URL and title, and an
+`alarms`-driven heartbeat so a tab left focused but idle keeps the agent's
+"current site" fresh.
 
 ## How it works
 
@@ -16,8 +26,12 @@ else VaayuGuard collects).
 - `content.js` relays that number to `background.js` via `postMessage`
   (the only channel between the page's "MAIN" world and the extension's
   "ISOLATED" world).
-- `background.js` POSTs it to the agent, which compares it against the
-  device's assigned WhatsApp number the same way it already does for email.
+- `background.js` POSTs the WhatsApp number to the agent (which compares it
+  against the device's assigned number the same way it does for email), and
+  separately POSTs the active tab's hostname + title to `/active-tab` on
+  every focus/navigation change (and on a 30s alarm). The agent correlates
+  that host to the foreground browser window by matching the tab title
+  against the window title. See `agent/src/ActiveTabStore.cs`.
 
 **This will occasionally break.** WhatsApp renames these internal module
 names when they ship updates, since they were never meant to be a public

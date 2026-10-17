@@ -5,6 +5,8 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { TimelineTable } from "@/components/timeline-table";
 import { DateNav } from "@/components/date-nav";
 import { todayIST, istDayBoundsUtc, shiftDate } from "@/lib/date-range";
+import { timeAgo } from "@/lib/presence";
+import { formatSite, formatWhatsAppIdentity } from "@/lib/format";
 import type { WindowActivity } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +48,7 @@ export default async function TimelinePage({
     // is deliberately NOT date-scoped — it's "what's open right now", not history.
     supabase
       .from("window_activity")
-      .select("device_id, process_name, window_title, captured_at")
+      .select("device_id, process_name, window_title, url, browser_profile, account_email, whatsapp_number, captured_at")
       .order("captured_at", { ascending: false })
       .limit(500),
   ]);
@@ -64,22 +66,10 @@ export default async function TimelinePage({
   // poll of every open window every second).
   const latestByDevice = new Map<
     string,
-    Pick<WindowActivity, "device_id" | "process_name" | "window_title" | "captured_at">
+    Pick<WindowActivity, "device_id" | "process_name" | "window_title" | "url" | "browser_profile" | "account_email" | "whatsapp_number" | "captured_at">
   >();
   for (const row of recentAcrossFleet ?? []) {
     if (!latestByDevice.has(row.device_id)) latestByDevice.set(row.device_id, row);
-  }
-
-  function deviceName(id: string) {
-    const d = (devices ?? []).find((x) => x.id === id);
-    return d?.device_label ?? d?.hostname ?? id.slice(0, 8);
-  }
-
-  function timeAgo(iso: string) {
-    const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
-    if (seconds < 60) return `${seconds}s ago`;
-    if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
-    return `${Math.round(seconds / 3600)}h ago`;
   }
 
   return (
@@ -99,7 +89,7 @@ export default async function TimelinePage({
         <div className="border-b border-line p-4">
           <h2 className="font-medium text-fg-2">Right now, across all PCs</h2>
           <p className="text-xs text-subtle">
-            Last observed window per device — not a guarantee it's still open right now.
+            Last observed window per device — not a guarantee it&apos;s still open right now.
           </p>
         </div>
         <div className="divide-y divide-line-soft">
@@ -108,12 +98,29 @@ export default async function TimelinePage({
           ) : (
             (devices ?? []).map((d) => {
               const latest = latestByDevice.get(d.id);
+              const site = latest ? formatSite(latest.url) : null;
               return (
                 <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
                   <span className="font-medium">{d.device_label ?? d.hostname ?? d.id.slice(0, 8)}</span>
                   {latest ? (
                     <span className="min-w-0 text-muted [overflow-wrap:anywhere]">
-                      <span className="font-medium">{latest.process_name}</span> — {latest.window_title}
+                      <span className="font-medium text-fg-2">{latest.process_name}</span>
+                      {site ? (
+                        <span className="ml-2 rounded bg-surface-2 px-1.5 py-0.5 text-xs font-medium text-fg-2">
+                          {site}
+                        </span>
+                      ) : null}
+                      {latest.account_email || latest.browser_profile ? (
+                        <span className="ml-1.5 rounded-full border border-line-strong px-1.5 py-0.5 text-xs">
+                          {latest.account_email ?? latest.browser_profile}
+                        </span>
+                      ) : null}
+                      {latest.whatsapp_number ? (
+                        <span className="ml-1.5 rounded-full border border-line-strong px-1.5 py-0.5 text-xs">
+                          WhatsApp {formatWhatsAppIdentity(latest.whatsapp_number)}
+                        </span>
+                      ) : null}
+                      <span className="ml-2">— {latest.window_title}</span>
                       <span className="ml-2 text-xs text-subtle">{timeAgo(latest.captured_at)}</span>
                     </span>
                   ) : (

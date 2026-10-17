@@ -50,6 +50,7 @@ if (string.Equals(Path.GetFileNameWithoutExtension(Environment.ProcessPath), "Va
 
 builder.Services.AddSingleton<WindowScanner>();
 builder.Services.AddSingleton<LocalQueue>();
+builder.Services.AddSingleton<ActiveTabStore>();
 builder.Services.AddHttpClient<BackendClient>(client =>
 {
     client.BaseAddress = new Uri(agentOptions.BackendBaseUrl);

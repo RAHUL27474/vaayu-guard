@@ -8,11 +8,10 @@ import { TimelineTable } from "@/components/timeline-table";
 import { DateNav } from "@/components/date-nav";
 import { todayIST, istDayBoundsUtc, shiftDate } from "@/lib/date-range";
 import { formatDuration, formatDate, formatWhatsAppIdentity } from "@/lib/format";
+import { isOnline } from "@/lib/presence";
 import type { WindowActivity } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
-
-const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 
 export default async function DeviceDetailPage({
   params,
@@ -55,8 +54,7 @@ export default async function DeviceDetailPage({
     ]);
   if (!device) notFound();
 
-  const online =
-    !!device.last_seen_at && Date.now() - new Date(device.last_seen_at).getTime() < ONLINE_WINDOW_MS;
+  const online = isOnline(device.last_seen_at);
   const openAlertCount = openAlerts?.length ?? 0;
 
   const deviceMap = {

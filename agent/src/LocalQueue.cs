@@ -18,6 +18,10 @@ public record QueuedWindowActivity(
     DateTimeOffset CapturedAt,
     string ProcessName,
     string WindowTitle,
+    string? Url,
+    string? BrowserProfile,
+    string? AccountEmail,
+    string? WhatsAppNumber,
     bool IsForeground);
 
 /// <summary>
@@ -62,6 +66,10 @@ public class LocalQueue
                     captured_at TEXT NOT NULL,
                     process_name TEXT NOT NULL,
                     window_title TEXT NOT NULL,
+                    url TEXT,
+                    browser_profile TEXT,
+                    account_email TEXT,
+                    whatsapp_number TEXT,
                     is_foreground INTEGER NOT NULL DEFAULT 0,
                     synced INTEGER NOT NULL DEFAULT 0
                 );
@@ -70,19 +78,29 @@ public class LocalQueue
             cmd.ExecuteNonQuery();
         }
 
-        // A queue.db from before is_foreground existed won't have the
-        // column — CREATE TABLE IF NOT EXISTS leaves it untouched, so add
-        // it explicitly for machines that already ran an older build.
+        // Columns added after a machine first created queue.db won't exist
+        // yet — CREATE TABLE IF NOT EXISTS leaves an existing table untouched,
+        // so add each missing one explicitly for upgraded installs.
+        EnsureColumn(conn, "events", "is_foreground", "INTEGER NOT NULL DEFAULT 0");
+        EnsureColumn(conn, "window_activity", "url", "TEXT");
+        EnsureColumn(conn, "window_activity", "browser_profile", "TEXT");
+        EnsureColumn(conn, "window_activity", "account_email", "TEXT");
+        EnsureColumn(conn, "window_activity", "whatsapp_number", "TEXT");
+    }
+
+    private static void EnsureColumn(SqliteConnection conn, string table, string column, string definition)
+    {
         bool hasColumn;
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "SELECT COUNT(*) FROM pragma_table_info('events') WHERE name = 'is_foreground';";
+            cmd.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = $name;";
+            cmd.Parameters.AddWithValue("$name", column);
             hasColumn = Convert.ToInt64(cmd.ExecuteScalar()) > 0;
         }
         if (!hasColumn)
         {
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "ALTER TABLE events ADD COLUMN is_foreground INTEGER NOT NULL DEFAULT 0;";
+            cmd.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {definition};";
             cmd.ExecuteNonQuery();
         }
     }
@@ -195,17 +213,21 @@ public class LocalQueue
         }
     }
 
-    public void EnqueueWindowActivity(ScannedWindow window)
+    public void EnqueueWindowActivity(ScannedWindow window, string? url, string? browserProfile, string? accountEmail, string? whatsAppNumber)
     {
         using var conn = Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            INSERT INTO window_activity (captured_at, process_name, window_title, is_foreground)
-            VALUES ($capturedAt, $processName, $windowTitle, $isForeground);
+            INSERT INTO window_activity (captured_at, process_name, window_title, url, browser_profile, account_email, whatsapp_number, is_foreground)
+            VALUES ($capturedAt, $processName, $windowTitle, $url, $browserProfile, $accountEmail, $whatsAppNumber, $isForeground);
             """;
         cmd.Parameters.AddWithValue("$capturedAt", DateTimeOffset.UtcNow.ToString("o"));
         cmd.Parameters.AddWithValue("$processName", window.ProcessName);
         cmd.Parameters.AddWithValue("$windowTitle", window.WindowTitle);
+        cmd.Parameters.AddWithValue("$url", (object?)url ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$browserProfile", (object?)browserProfile ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$accountEmail", (object?)accountEmail ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$whatsAppNumber", (object?)whatsAppNumber ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$isForeground", window.IsForeground ? 1 : 0);
         cmd.ExecuteNonQuery();
     }
@@ -215,7 +237,7 @@ public class LocalQueue
         using var conn = Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            SELECT id, captured_at, process_name, window_title, is_foreground
+            SELECT id, captured_at, process_name, window_title, url, browser_profile, account_email, whatsapp_number, is_foreground
             FROM window_activity WHERE synced = 0 ORDER BY id ASC LIMIT $limit;
             """;
         cmd.Parameters.AddWithValue("$limit", limit);
@@ -229,7 +251,11 @@ public class LocalQueue
                 DateTimeOffset.Parse(reader.GetString(1)),
                 reader.GetString(2),
                 reader.GetString(3),
-                reader.GetInt32(4) == 1));
+                reader.IsDBNull(4) ? null : reader.GetString(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5),
+                reader.IsDBNull(6) ? null : reader.GetString(6),
+                reader.IsDBNull(7) ? null : reader.GetString(7),
+                reader.GetInt32(8) == 1));
         }
         return result;
     }

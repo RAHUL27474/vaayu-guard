@@ -13,7 +13,7 @@ public class AgentOptions
     public string DataDirectory { get; set; } = "%ProgramData%\\VaayuGuard";
 
     /// <summary>How often to check the dashboard for a newer agent build.</summary>
-    public int UpdateCheckIntervalMinutes { get; set; } = 240;
+    public int UpdateCheckIntervalMinutes { get; set; } = 60;
 
     /// <summary>
     /// Loopback-only port the VaayuGuard browser extension posts the

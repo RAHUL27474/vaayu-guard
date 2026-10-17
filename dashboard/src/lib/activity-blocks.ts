@@ -3,6 +3,10 @@ import type { WindowActivity } from "@/lib/types/database";
 export type ActivityBlock = {
   processName: string;
   windowTitle: string;
+  url: string | null;
+  browserProfile: string | null;
+  accountEmail: string | null;
+  whatsappNumber: string | null;
   isForeground: boolean;
   startAt: string;
   endAt: string | null; // null = still the latest known state (may still be open)
@@ -27,6 +31,10 @@ export function groupIntoBlocks(rows: WindowActivity[]): ActivityBlock[] {
     return {
       processName: row.process_name,
       windowTitle: row.window_title,
+      url: row.url ?? null,
+      browserProfile: row.browser_profile ?? null,
+      accountEmail: row.account_email ?? null,
+      whatsappNumber: row.whatsapp_number ?? null,
       isForeground: row.is_foreground,
       startAt: row.captured_at,
       endAt: next ? next.captured_at : null,

@@ -4,6 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { authenticateDevice } from "@/lib/agent-auth";
 import { isHidden, type FilterRule } from "@/lib/visibility-filter";
 import type { Database } from "@/lib/types/database";
+// The same manifest agents download updates from — its version is echoed on
+// every check-in so an out-of-date agent updates within a minute instead of
+// waiting for its periodic update check.
+import agentManifest from "../../../../../public/agent/manifest.json";
 
 type IncomingEvent = {
   capturedAt: string;
@@ -20,6 +24,10 @@ type IncomingWindowActivity = {
   capturedAt: string;
   processName: string;
   windowTitle: string;
+  url?: string | null;
+  browserProfile?: string | null;
+  accountEmail?: string | null;
+  whatsAppNumber?: string | null;
   isForeground?: boolean;
 };
 
@@ -63,10 +71,16 @@ export async function POST(request: Request) {
 
   const events = (body.events ?? [])
     .slice(0, MAX_EVENTS_PER_BATCH)
-    .filter((e) => !isHidden(e.windowTitle, e.detectedIdentity, filters));
+    .filter((e) => !isHidden(e.windowTitle, e.detectedIdentity, filters, null, { processName: e.processName }));
   const windowActivity = (body.windowActivity ?? [])
     .slice(0, MAX_WINDOW_ACTIVITY_PER_BATCH)
-    .filter((w) => !isHidden(w.windowTitle, null, filters));
+    .filter(
+      (w) =>
+        !isHidden(w.windowTitle, null, filters, w.browserProfile, {
+          processName: w.processName,
+          accountEmail: w.accountEmail,
+        })
+    );
 
   if (windowActivity.length > 0) {
     await supabase.from("window_activity").insert(
@@ -75,6 +89,10 @@ export async function POST(request: Request) {
         captured_at: w.capturedAt,
         process_name: w.processName,
         window_title: w.windowTitle,
+        url: w.url ?? null,
+        browser_profile: w.browserProfile ?? null,
+        account_email: w.accountEmail ?? null,
+        whatsapp_number: w.whatsAppNumber ?? null,
         is_foreground: w.isForeground ?? false,
       }))
     );
@@ -168,6 +186,17 @@ export async function POST(request: Request) {
   const uninstallCodeSha256 = settings?.uninstall_code ? sha256(settings.uninstall_code) : null;
   const developerCodeSha256 = settings?.developer_code ? sha256(settings.developer_code) : null;
 
+  // Browser profiles the developer has switched off for this device. The
+  // server already drops their window activity above (via `profile` filters),
+  // so this is belt-and-braces: the agent can also stop reporting them, and
+  // the extension can stop capturing URLs from them, before anything is sent.
+  const disabledProfiles = filters
+    .filter((f) => f.target === "profile" && f.pattern.trim().length > 0)
+    .map((f) => f.pattern.trim());
+  const disabledApps = filters
+    .filter((f) => f.target === "app" && f.pattern.trim().length > 0)
+    .map((f) => f.pattern.trim());
+
   // Echo back the current assignment/status so the agent stays in sync if
   // the admin changes it later, without needing a reinstall.
   return NextResponse.json({
@@ -179,6 +208,9 @@ export async function POST(request: Request) {
     closeRequests,
     uninstallCodeSha256,
     developerCodeSha256,
+    disabledProfiles,
+    disabledApps,
+    latestAgentVersion: agentManifest.version,
   });
 }
 

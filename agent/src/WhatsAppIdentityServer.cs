@@ -7,13 +7,17 @@ namespace VaayuMonitor.Agent;
 
 /// <summary>
 /// Tiny local-loopback-only HTTP endpoint the VaayuGuard browser extension
-/// posts to whenever it reads the signed-in WhatsApp Web account's own
-/// number out of web.whatsapp.com's page — see extension/inject.js. Bound
-/// to an explicit 127.0.0.1 address (not a wildcard host), which Windows
-/// lets any user-mode process listen on without the admin-only URL ACL
-/// reservation a wildcard binding would need.
+/// posts to. Two routes, both from the extension:
+///   • POST /whatsapp-identity — the signed-in WhatsApp Web account's own
+///     number (see extension/inject.js).
+///   • POST /active-tab — the active browser tab's site (host) + document
+///     title, so the agent can label the foreground browser window with the
+///     site it's showing (see extension/background.js and ActiveTabStore).
+/// Bound to an explicit 127.0.0.1 address (not a wildcard host), which
+/// Windows lets any user-mode process listen on without the admin-only URL
+/// ACL reservation a wildcard binding would need.
 /// </summary>
-public class WhatsAppIdentityServer(AgentOptions options, ILogger<WhatsAppIdentityServer> logger) : IHostedService
+public class WhatsAppIdentityServer(AgentOptions options, ActiveTabStore activeTabs, ILogger<WhatsAppIdentityServer> logger) : IHostedService
 {
     private HttpListener? _listener;
     private CancellationTokenSource? _cts;
@@ -64,7 +68,9 @@ public class WhatsAppIdentityServer(AgentOptions options, ILogger<WhatsAppIdenti
         {
             ctx.Response.Headers.Add("Access-Control-Allow-Origin", "*");
 
-            if (ctx.Request.HttpMethod == "POST" && ctx.Request.Url?.AbsolutePath == "/whatsapp-identity")
+            var path = ctx.Request.Url?.AbsolutePath;
+
+            if (ctx.Request.HttpMethod == "POST" && path == "/whatsapp-identity")
             {
                 using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);
                 var body = await reader.ReadToEndAsync();
@@ -75,6 +81,34 @@ public class WhatsAppIdentityServer(AgentOptions options, ILogger<WhatsAppIdenti
                 if (!string.IsNullOrEmpty(number))
                 {
                     WhatsAppIdentityStore.Save(options, number);
+                }
+
+                ctx.Response.StatusCode = 204;
+            }
+            else if (ctx.Request.HttpMethod == "POST" && path == "/active-tab")
+            {
+                using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);
+                var body = await reader.ReadToEndAsync();
+                var payload = JsonSerializer.Deserialize<ActiveTabPayload>(
+                    body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (!string.IsNullOrWhiteSpace(payload?.Host))
+                {
+                    activeTabs.Report(payload.Host, payload.Title);
+                }
+
+                ctx.Response.StatusCode = 204;
+            }
+            else if (ctx.Request.HttpMethod == "POST" && path == "/profile-windows")
+            {
+                using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);
+                var body = await reader.ReadToEndAsync();
+                var payload = JsonSerializer.Deserialize<ProfileWindowsPayload>(
+                    body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (!string.IsNullOrWhiteSpace(payload?.Email))
+                {
+                    activeTabs.ReportProfileWindows(payload.Email, payload.Titles);
                 }
 
                 ctx.Response.StatusCode = 204;
@@ -106,4 +140,6 @@ public class WhatsAppIdentityServer(AgentOptions options, ILogger<WhatsAppIdenti
     }
 
     private record WhatsAppReportPayload(string? Number);
+    private record ActiveTabPayload(string? Host, string? Title);
+    private record ProfileWindowsPayload(string? Email, List<string>? Titles);
 }

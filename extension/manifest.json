@@ -1,8 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "VaayuGuard WhatsApp Identity Helper",
-  "version": "1.0",
-  "description": "Tells the VaayuGuard monitoring agent which WhatsApp account is signed in on this PC. Never reads message content.",
+  "name": "VaayuGuard Browser Helper",
+  "version": "1.2",
+  "description": "Reports the active tab's site (domain only, never page content or full URLs), which signed-in browser account each window belongs to, and the signed-in WhatsApp Web account to the VaayuGuard monitoring agent on this company PC.",
+  "permissions": [
+    "tabs",
+    "alarms",
+    "identity",
+    "identity.email"
+  ],
   "host_permissions": [
     "https://web.whatsapp.com/*",
     "http://127.0.0.1:8737/*"
@@ -12,14 +18,22 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://web.whatsapp.com/*"],
-      "js": ["inject.js"],
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "js": [
+        "inject.js"
+      ],
       "world": "MAIN",
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://web.whatsapp.com/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ]
