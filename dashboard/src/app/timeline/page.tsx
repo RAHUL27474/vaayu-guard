@@ -54,6 +54,12 @@ export default async function TimelinePage({
   ]);
 
   const activeDeviceId = deviceId ?? devices?.[0]?.id;
+
+  // Show who the PC is assigned to; the device label is the fallback (and the
+  // hover text) for PCs with nobody assigned.
+  type DeviceLite = { id: string; device_label: string | null; hostname: string | null; assigned_to_user: string | null };
+  const deviceLabel = (d: DeviceLite) => d.device_label ?? d.hostname ?? d.id.slice(0, 8);
+  const personName = (d: DeviceLite) => d.assigned_to_user?.trim() || deviceLabel(d);
   const rows: WindowActivity[] = explicitRows
     ? explicitRows.data ?? []
     : activeDeviceId
@@ -101,7 +107,7 @@ export default async function TimelinePage({
               const site = latest ? formatSite(latest.url) : null;
               return (
                 <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
-                  <span className="font-medium">{d.device_label ?? d.hostname ?? d.id.slice(0, 8)}</span>
+                  <span className="font-medium" title={deviceLabel(d)}>{personName(d)}</span>
                   {latest ? (
                     <span className="min-w-0 text-muted [overflow-wrap:anywhere]">
                       <span className="font-medium text-fg-2">{latest.process_name}</span>
@@ -141,13 +147,14 @@ export default async function TimelinePage({
               <Link
                 key={d.id}
                 href={`/timeline?device=${d.id}&date=${date}`}
+                title={deviceLabel(d)}
                 className={`rounded-full border px-3 py-1 text-sm ${
                   d.id === activeDeviceId
                     ? "border-primary bg-primary text-primary-fg"
                     : "border-line-strong text-fg-2 hover:bg-surface-2"
                 }`}
               >
-                {d.device_label ?? d.hostname ?? d.id.slice(0, 8)}
+                {personName(d)}
               </Link>
             ))}
           </div>
