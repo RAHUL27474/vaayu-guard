@@ -53,6 +53,7 @@ export type Database = {
           consent_acknowledged_at: string | null
           consent_notice_version: number | null
           agent_version: number | null
+          agent_update_error: string | null
           registered_at: string
           created_by: string | null
         }
@@ -71,6 +72,7 @@ export type Database = {
           consent_acknowledged_at?: string | null
           consent_notice_version?: number | null
           agent_version?: number | null
+          agent_update_error?: string | null
           registered_at?: string
           created_by?: string | null
         }
@@ -89,6 +91,7 @@ export type Database = {
           consent_acknowledged_at?: string | null
           consent_notice_version?: number | null
           agent_version?: number | null
+          agent_update_error?: string | null
           registered_at?: string
           created_by?: string | null
         }

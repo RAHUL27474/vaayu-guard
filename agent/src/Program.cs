@@ -59,7 +59,9 @@ builder.Services.AddHttpClient<BackendClient>(client =>
 builder.Services.AddHttpClient<SelfUpdater>(client =>
 {
     client.BaseAddress = new Uri(agentOptions.BackendBaseUrl);
-    client.Timeout = TimeSpan.FromMinutes(2); // downloading the exe can take a while
+    // Upper bound only — the exe download has its own 30-minute limit and
+    // streams to disk (see SelfUpdater), so a slow office link still finishes.
+    client.Timeout = TimeSpan.FromMinutes(35);
 });
 
 builder.Services.AddHostedService<Worker>();

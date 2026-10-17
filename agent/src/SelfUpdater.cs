@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 
@@ -11,12 +11,12 @@ public record UpdateManifest(
 
 /// <summary>
 /// Checks the dashboard for a newer published build and, if found,
-/// downloads it, verifies its hash, and swaps it into place â€” so updating
+/// downloads it, verifies its hash, and swaps it into place — so updating
 /// VaayuGuard never again means walking to 11 PCs with a USB stick.
 ///
 /// A running exe's own file content can't be overwritten, but it CAN be
 /// renamed while running (Windows only locks the content, not the
-/// directory entry) â€” so this renames itself out of the way, writes the
+/// directory entry) — so this renames itself out of the way, writes the
 /// new build at the original path, then exits with a non-zero code and
 /// lets the Scheduled Task's own restart-on-failure setting relaunch it.
 /// An earlier version spawned a detached helper script to do the swap and
@@ -24,18 +24,18 @@ public record UpdateManifest(
 /// killed along with this process by Task Scheduler's job-object cleanup
 /// the moment this process exited, silently discarding the update and
 /// leaving nothing running. Task Scheduler's own restart mechanism doesn't
-/// have that problem â€” it's not a child process of anything this process
+/// have that problem — it's not a child process of anything this process
 /// spawned.
 /// </summary>
 public class SelfUpdater(HttpClient http, ILogger<SelfUpdater> logger)
 {
     // Bump alongside agent/install/stage-update.ps1's manifest version on
     // every release that should trigger already-installed agents to update.
-    public const int CurrentAgentVersion = 22;
+    public const int CurrentAgentVersion = 23;
 
     /// <summary>
     /// Deletes a leftover renamed-old-exe from an update applied on a
-    /// previous run, if any. Call once at startup â€” by then the OS has
+    /// previous run, if any. Call once at startup — by then the OS has
     /// long since released any lock the old process held on it.
     /// </summary>
     public static void CleanupPreviousVersion()
@@ -44,8 +44,19 @@ public class SelfUpdater(HttpClient http, ILogger<SelfUpdater> logger)
         if (string.IsNullOrEmpty(currentExePath)) return;
         var oldPath = currentExePath + ".old";
         try { if (File.Exists(oldPath)) File.Delete(oldPath); }
-        catch { /* best-effort â€” try again next start */ }
+        catch { /* best-effort — try again next start */ }
     }
+
+    /// <summary>
+    /// Why the last update attempt failed, or null if it succeeded / there was
+    /// nothing to do. Sent with each check-in (devices.agent_update_error) so a
+    /// PC that isn't updating can be diagnosed without visiting it.
+    /// </summary>
+    public static string? LastError { get; private set; }
+
+    // Generous: the exe is tens of MB and office links can be slow. The
+    // download streams to disk, so a slow link costs time, not memory.
+    private static readonly TimeSpan DownloadTimeout = TimeSpan.FromMinutes(30);
 
     public async Task CheckAndApplyAsync(CancellationToken ct)
     {
@@ -56,67 +67,98 @@ public class SelfUpdater(HttpClient http, ILogger<SelfUpdater> logger)
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Update check failed");
+            Fail($"update check failed: {ex.GetType().Name}: {ex.Message}", ex);
             return;
         }
 
-        if (manifest is null || manifest.Version <= CurrentAgentVersion) return;
+        if (manifest is null || manifest.Version <= CurrentAgentVersion)
+        {
+            LastError = null;
+            return;
+        }
 
         logger.LogInformation(
-            "Update available: v{Current} -> v{New} â€” downloading",
+            "Update available: v{Current} -> v{New} — downloading",
             CurrentAgentVersion, manifest.Version);
 
-        byte[] bytes;
+        var currentExePath = Environment.ProcessPath;
+        if (string.IsNullOrEmpty(currentExePath))
+        {
+            Fail("could not determine the running executable's path");
+            return;
+        }
+
+        // Stream straight to a file beside the exe — no whole-file buffering,
+        // and no short request timeout cutting off a slow download.
+        var newPath = currentExePath + ".new";
+        var started = DateTimeOffset.UtcNow;
         try
         {
-            bytes = await http.GetByteArrayAsync(manifest.Url, ct);
+            using var downloadCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            downloadCts.CancelAfter(DownloadTimeout);
+            using var res = await http.GetAsync(manifest.Url, HttpCompletionOption.ResponseHeadersRead, downloadCts.Token);
+            res.EnsureSuccessStatusCode();
+            await using var body = await res.Content.ReadAsStreamAsync(downloadCts.Token);
+            await using var file = new FileStream(newPath, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 16, useAsync: true);
+            await body.CopyToAsync(file, 1 << 16, downloadCts.Token);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Update download failed");
+            TryDelete(newPath);
+            Fail($"download of v{manifest.Version} failed after {(DateTimeOffset.UtcNow - started).TotalSeconds:F0}s: {ex.GetType().Name}: {ex.Message}", ex);
             return;
         }
 
         if (manifest.Sha256 is not null)
         {
-            var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+            string hash;
+            await using (var file = File.OpenRead(newPath))
+            {
+                hash = Convert.ToHexString(await SHA256.HashDataAsync(file, ct)).ToLowerInvariant();
+            }
             if (!string.Equals(hash, manifest.Sha256, StringComparison.OrdinalIgnoreCase))
             {
-                logger.LogWarning("Downloaded update failed the hash check â€” discarding, will retry later.");
+                TryDelete(newPath);
+                Fail($"downloaded v{manifest.Version} failed the hash check");
                 return;
             }
-        }
-
-        var currentExePath = Environment.ProcessPath;
-        if (string.IsNullOrEmpty(currentExePath))
-        {
-            logger.LogWarning("Could not determine the running executable's path â€” skipping self-update.");
-            return;
         }
 
         try
         {
             var oldPath = currentExePath + ".old";
-            try { if (File.Exists(oldPath)) File.Delete(oldPath); } catch { /* ignore */ }
+            TryDelete(oldPath);
 
             // Renaming a running exe is allowed (only its content is
             // locked); this frees up the original path for the new build.
             File.Move(currentExePath, oldPath);
-            await File.WriteAllBytesAsync(currentExePath, bytes, ct);
+            File.Move(newPath, currentExePath);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to swap in the new build â€” leaving the current version running");
+            TryDelete(newPath);
+            Fail($"could not swap in v{manifest.Version}: {ex.GetType().Name}: {ex.Message}", ex);
             return;
         }
 
         logger.LogInformation(
-            "Update applied to disk (v{Version}) â€” exiting so the Scheduled Task's restart-on-failure relaunches it",
+            "Update applied to disk (v{Version}) — exiting so the Scheduled Task's restart-on-failure relaunches it",
             manifest.Version);
 
         // Non-zero on purpose: this is what tells Task Scheduler to apply
         // its RestartCount/RestartInterval policy instead of treating this
         // as a normal, intentional completion.
         Environment.Exit(1);
+    }
+
+    private void Fail(string message, Exception? ex = null)
+    {
+        LastError = message.Length > 500 ? message[..500] : message;
+        logger.LogWarning(ex, "Self-update: {Message}", message);
+    }
+
+    private static void TryDelete(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); } catch { /* best-effort */ }
     }
 }

@@ -50,7 +50,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: { events?: IncomingEvent[]; windowActivity?: IncomingWindowActivity[]; agentVersion?: number };
+  let body: {
+    events?: IncomingEvent[];
+    windowActivity?: IncomingWindowActivity[];
+    agentVersion?: number;
+    updateError?: string | null;
+  };
   try {
     body = await request.json();
   } catch {
@@ -158,6 +163,9 @@ export async function POST(request: Request) {
       .update({
         last_seen_at: new Date().toISOString(),
         ...(body.agentVersion ? { agent_version: body.agentVersion } : {}),
+      // Why this PC's last self-update failed (null once it's fine). Only
+      // agents v23+ send the field; older ones leave the column untouched.
+      ...("updateError" in body ? { agent_update_error: body.updateError?.slice(0, 500) ?? null } : {}),
       })
       .eq("id", device.id),
     // One-shot "close this window" commands queued from the Alerts page —
