@@ -33,3 +33,6 @@ Thumbs.db
 # ExtensionInstallForcelist policy), so it's kept out of the public repo
 # entirely rather than rotated per-build. Back this up somewhere safe.
 keys/
+
+# Built admin desktop launcher (published as a GitHub release asset)
+admin-app/dist/
