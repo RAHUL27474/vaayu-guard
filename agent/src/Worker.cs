@@ -202,13 +202,20 @@ public class Worker(
             // capture and send nothing from it.
             if (_disabledApps.Contains(window.ProcessName)) continue;
 
-            var profile = BrowserProfiles.Parse(window.ProcessName, window.WindowTitle, _knownProfiles);
-            // Best source first: the extension running inside the window's own
-            // profile says which account it is. Fall back to the browser's
-            // Local State when no fresh report matches this window.
-            var accountEmail = BrowserProfiles.IsBrowser(window.ProcessName)
-                ? activeTabs.ResolveEmailForWindow(window.WindowTitle)
-                    ?? BrowserProfiles.ResolveAccountEmail(window.ProcessName, profile, _profiles)
+            // Which profile/account a browser window belongs to, most exact
+            // source first: the profile folder the browser tags the window
+            // itself with (mapped to Local State); then the extension's report
+            // (if it's installed); then the profile name in the title, or the
+            // browser's only profile.
+            var isBrowser = BrowserProfiles.IsBrowser(window.ProcessName);
+            var byDir = isBrowser
+                ? BrowserProfiles.FindByDirectory(window.ProcessName, BrowserWindowProfile.GetProfileDirectory(window.Hwnd), _profiles)
+                : null;
+            var profile = byDir?.Name ?? BrowserProfiles.Parse(window.ProcessName, window.WindowTitle, _knownProfiles);
+            var accountEmail = isBrowser
+                ? byDir?.Email
+                    ?? activeTabs.ResolveEmailForWindow(window.WindowTitle)
+                    ?? (byDir is null ? BrowserProfiles.ResolveAccountEmail(window.ProcessName, profile, _profiles) : null)
                 : null;
 
             // Developer switched this whole browser profile off (by its name

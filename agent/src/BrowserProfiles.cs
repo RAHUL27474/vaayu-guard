@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace VaayuMonitor.Agent;
 
-public record BrowserProfileInfo(string Browser, string Name, string? Email);
+public record BrowserProfileInfo(string Browser, string Directory, string Name, string? Email);
 
 /// <summary>
 /// Figures out which browser profile a window belongs to, by matching the
@@ -76,6 +76,7 @@ public static class BrowserProfiles
                         var email = ReadString(entry.Value, "user_name");
                         result.Add(new BrowserProfileInfo(
                             LocalStateBrowsers[i],
+                            entry.Name,
                             name!,
                             string.IsNullOrWhiteSpace(email) ? null : email));
                     }
@@ -113,6 +114,18 @@ public static class BrowserProfiles
             return named.Count == 1 ? named[0].Email : null;
         }
         return mine.Count == 1 ? mine[0].Email : null;
+    }
+
+    /// <summary>
+    /// The profile a window's own profile folder (see BrowserWindowProfile)
+    /// points to — exact, even when several profiles share a display name.
+    /// </summary>
+    public static BrowserProfileInfo? FindByDirectory(string processName, string? directory, IReadOnlyList<BrowserProfileInfo> profiles)
+    {
+        if (string.IsNullOrWhiteSpace(directory)) return null;
+        return profiles.FirstOrDefault(p =>
+            string.Equals(p.Browser, processName, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(p.Directory, directory, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string? ReadString(JsonElement obj, string property) =>
